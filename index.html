@@ -173,7 +173,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   <header class="top">
     <div>
       <h1>金春喜進貨填報</h1>
-      <div class="sub">10號、20號、月底填進貨，月底庫存盤點後自動算出實際用料與實際成本率。</div>
+      <div class="sub">10號、20號、月底填當月累計進貨，月底庫存盤點後自動算出實際用料與實際成本率。</div>
     </div>
     <div class="pickers">
       <span class="sync" id="sync" title="點此重新輸入密碼"></span>
@@ -214,38 +214,33 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
         <div class="field" id="revField">
           <label class="lab" for="revenue" id="revLab">實際業績</label>
           <div class="money"><span>NT$</span><input id="revenue" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
-          <div class="hint">本期門市實際營業額</div>
+          <div class="hint">當月累計實際營業額（月底那筆即為整月業績）</div>
         </div>
       </div>
 
       <div id="buyBlock">
-        <h2>各廠商進貨金額 <small id="periodTag"></small></h2>
+        <h2><span id="buyTitle">各廠商進貨金額</span> <small id="periodTag"></small></h2>
         <div class="vendors" id="vendors"></div>
         <h2>其他廠商 <small>名稱自行填寫，最多 5 家</small></h2>
         <div class="others" id="others"></div>
         <div class="totalbar">
-          <div><div class="k">原料總進貨</div><div class="v" id="totalAmt">0</div></div>
-          <div><div class="k">佔實際業績</div><div class="v" id="totalPct">—</div></div>
+          <div><div class="k" id="totLab">原料總進貨</div><div class="v" id="totalAmt">0</div></div>
+          <div id="pctBox"><div class="k">佔實際業績</div><div class="v" id="totalPct">—</div></div>
         </div>
       </div>
 
       <div id="invBlock" hidden>
-        <h2>庫存盤點 <small id="invTag"></small></h2>
+        <h2>期初庫存與成本率預覽</h2>
         <div class="row2">
           <div class="field">
             <label class="lab" for="opening">期初庫存（上月月底庫存）</label>
             <div class="money"><span>NT$</span><input id="opening" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
             <div class="hint" id="openHint"></div>
           </div>
-          <div class="field">
-            <label class="lab" for="inventory">月底庫存</label>
-            <div class="money"><span>NT$</span><input id="inventory" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
-            <div class="hint">本月底盤點的庫存金額</div>
-          </div>
         </div>
         <div class="totalbar">
-          <div><div class="k">當月進貨（三期）</div><div class="v" id="icBuy">—</div></div>
-          <div><div class="k">當月業績（三期）</div><div class="v" id="icRev">—</div></div>
+          <div><div class="k">當月進貨（月底）</div><div class="v" id="icBuy">—</div></div>
+          <div><div class="k">當月業績（月底）</div><div class="v" id="icRev">—</div></div>
           <div><div class="k">實際用料</div><div class="v" id="icUsed">—</div></div>
           <div><div class="k">實際成本率</div><div class="v" id="icRate">—</div></div>
         </div>
@@ -259,7 +254,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     </div>
 
     <div class="panel">
-      <div class="progress"><h2 style="margin:0" id="progTitle">填報進度</h2><span><b id="doneN">0</b> / 34 間</span></div>
+      <div class="progress"><h2 style="margin:0" id="progTitle">填報進度</h2><span><b id="doneN">0</b> / <span id="storeTotal"></span> 間</span></div>
       <div class="bar"><i id="doneBar"></i></div>
       <div class="stores" id="stores"></div>
     </div>
@@ -268,8 +263,8 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   <section id="viewDash" hidden>
     <div class="kpis" id="kpis"></div>
     <div class="dgrid">
-      <div class="panel"><h2>各廠商進貨佔比 <small>三期合計，佔全店進貨</small></h2><div id="vendBars"></div></div>
-      <div class="panel"><h2>三期進貨金額 <small>全店合計</small></h2><div id="trend"></div></div>
+      <div class="panel"><h2>各廠商進貨佔比 <small>月底累計，佔全店進貨</small></h2><div id="vendBars"></div></div>
+      <div class="panel"><h2>累計進貨金額 <small>10號、20號、月底的全店合計</small></h2><div id="trend"></div></div>
       <div class="panel"><h2>各店實際成本率 <small id="costTag"></small></h2><div class="scroll" id="costBars"></div></div>
       <div class="panel"><h2>填報進度 <small>方塊依序為 10號、20號、月底、庫存</small></h2><div class="chips" id="matrix"></div></div>
     </div>
@@ -310,7 +305,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
 <script>
 (function () {
   var VENDORS = [["yc","央廚"],["tc","統倉"],["msj","美食家"],["cs1","菜商（營業）"],["cs2","菜商（飯菜）"],["hx","海鮮"],["yr","野人"],["hj","韓濟"],["hg","韓廣"],["lx","龍行"],["cp","岑品"],["jy","季遙"]];
-  var STORES = ["台中遠百","大直","中和環球","板橋遠百","義享","桃園遠百","新竹關新","中和四號","高雄遠百","嘉義遠百","南京","基隆","竹北遠百","板橋誠品","長安","內湖瑞光","桃園A19","內壢","南港","水湳","松菸","台中復興","竹圍","苗栗","仁德萬","秀泰站前","新莊中正","秀泰文心","新營萬","內湖萬","中壢大","新光忠孝","屏東環球","廣三SOGO"];
+  var STORES = ["台中遠百","大直","中和環球","板橋遠百","義享","桃園遠百","新竹關新","中和四號","高雄遠百","嘉義遠百","南京","基隆","竹北遠百","板橋誠品","長安","內湖瑞光","桃園A19","內壢","南港","水湳","松菸","台中復興","竹圍","苗栗","仁德萬","秀泰站前","新莊中正","秀泰文心","新營萬","內湖萬","中壢大","新光忠孝","屏東環球","廣三SOGO","埔里萬","新竹忠孝","嘉義秀泰"];
   var PERIODS = { d10: "10號", d20: "20號", eom: "月底", inv: "月底庫存" };
   var BUY_PERIODS = ["d10", "d20", "eom"];
   var NOTHER = 5;
@@ -346,6 +341,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   monthSel.value = st.month;
 
   var storeSel = $("storeSel");
+  $("storeTotal").textContent = STORES.length;
   STORES.forEach(function (n, i) { var o = document.createElement("option"); o.value = i + 1; o.textContent = (i + 1) + " " + n; storeSel.appendChild(o); });
 
   var vWrap = $("vendors");
@@ -380,24 +376,24 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     othersOf(e).forEach(function (o) { t += num(o.amount); });
     return t;
   }
+  /* month-end inventory total: vendor-level entries, or the older single total */
+  function invTotal(e) { return (e && (e.purchases || (e.others && e.others.length))) ? totalOf(e) : num(e && e.inventory); }
   function openingOf(no) {
     var e = entryOf("inv", no);
     if (e && typeof e.opening === "number") return e.opening;
     return st.prev.get(no) || 0;
   }
-  /* month figures for one store: three purchase periods + month-end inventory */
+  /* month figures for one store: 10號/20號/月底 hold month-to-date amounts, so 月底 is the month total */
   function monthStats(no) {
-    var rev = 0, buy = 0, miss = [];
-    BUY_PERIODS.forEach(function (p) {
-      var e = entryOf(p, no);
-      if (!e) miss.push(PERIODS[p]); else { rev += num(e.revenue); buy += totalOf(e); }
-    });
-    var inv = entryOf("inv", no);
+    var miss = [], e = entryOf("eom", no), inv = entryOf("inv", no);
+    var rev = e ? num(e.revenue) : 0, buy = e ? totalOf(e) : 0;
+    if (!e) miss.push(PERIODS.eom);
     if (!inv) miss.push(PERIODS.inv);
-    var opening = openingOf(no), closing = inv ? num(inv.inventory) : 0;
+    var opening = openingOf(no), closing = inv ? invTotal(inv) : 0;
     var complete = miss.length === 0 && rev > 0;
     var used = opening + buy - closing;
-    return { rev: rev, buy: buy, opening: opening, closing: closing, miss: miss, hasInv: !!inv, complete: complete, used: used, rate: complete ? used / rev : null, buyRate: rev > 0 ? buy / rev : null };
+    var any = ["d10", "d20", "eom", "inv"].some(function (p) { return !!entryOf(p, no); });
+    return { rev: rev, buy: buy, opening: opening, closing: closing, miss: miss, any: any, hasInv: !!inv, complete: complete, used: used, rate: complete ? used / rev : null, buyRate: rev > 0 ? buy / rev : null };
   }
 
   /* ---------- form ---------- */
@@ -406,23 +402,6 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   function oRows() { var a = []; for (var i = 0; i < NOTHER; i++) a.push({ n: $("on_" + i), a: $("oa_" + i), h: $("oh_" + i) }); return a; }
 
   function calc() {
-    if (isInv()) {
-      var s = monthStats(st.storeNo), op = num($("opening").value), cl = num($("inventory").value);
-      var haveThree = BUY_PERIODS.every(function (p) { return !!entryOf(p, st.storeNo); });
-      $("icBuy").textContent = haveThree ? fmt(s.buy) : "—";
-      $("icRev").textContent = haveThree ? fmt(s.rev) : "—";
-      if (haveThree && s.rev > 0) {
-        var used = op + s.buy - cl;
-        $("icUsed").textContent = fmt(used);
-        $("icRate").textContent = pct(used / s.rev);
-        $("invMiss").textContent = "";
-      } else {
-        $("icUsed").textContent = "—"; $("icRate").textContent = "—";
-        var miss = BUY_PERIODS.filter(function (p) { return !entryOf(p, st.storeNo); }).map(function (p) { return PERIODS[p]; });
-        $("invMiss").textContent = miss.length ? "尚未填報：" + miss.join("、") + "。三期都填好後才能算出實際成本率。" : "三期實際業績合計為 0，無法計算成本率。";
-      }
-      return;
-    }
     var rev = num($("revenue").value), total = 0;
     vInputs().forEach(function (inp) {
       var a = num(inp.value); total += a;
@@ -434,28 +413,39 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     });
     $("totalAmt").textContent = fmt(total);
     $("totalPct").textContent = rev > 0 ? pct(total / rev) : "—";
+    if (isInv()) {
+      var eom = entryOf("eom", st.storeNo), op = num($("opening").value);
+      if (eom && num(eom.revenue) > 0) {
+        var buy = totalOf(eom), er = num(eom.revenue), used = op + buy - total;
+        $("icBuy").textContent = fmt(buy); $("icRev").textContent = fmt(er);
+        $("icUsed").textContent = fmt(used); $("icRate").textContent = pct(used / er);
+        $("invMiss").textContent = "";
+      } else {
+        ["icBuy", "icRev", "icUsed", "icRate"].forEach(function (id) { $(id).textContent = "—"; });
+        $("invMiss").textContent = "尚未填報「月底」的進貨與業績，填好後才能算出實際成本率。";
+      }
+    }
   }
 
   function setState(txt, cls) { var s = $("saveState"); s.textContent = txt; s.className = "state " + (cls || ""); }
 
   function loadForm() {
     var e = cur(), inv = isInv(), pl = PERIODS[st.period];
-    $("revField").hidden = inv; $("buyBlock").hidden = inv; $("invBlock").hidden = !inv;
+    $("revField").hidden = inv; $("invBlock").hidden = !inv; $("pctBox").hidden = inv;
+    $("buyTitle").textContent = inv ? "各廠商月底庫存金額" : "各廠商進貨金額";
+    $("totLab").textContent = inv ? "月底庫存合計" : "原料總進貨";
+    $("revenue").value = (!inv && e && e.revenue) ? e.revenue : "";
+    vInputs().forEach(function (inp) { var a = e && e.purchases ? e.purchases[inp.dataset.k] : 0; inp.value = a ? a : ""; });
+    var os = (e && e.others) || [];
+    oRows().forEach(function (r, i) { var o = os[i]; r.n.value = o && o.name ? o.name : ""; r.a.value = o && o.amount ? o.amount : ""; });
     if (inv) {
       var pv = st.prev.get(st.storeNo);
       var opening = e && typeof e.opening === "number" ? e.opening : (pv || "");
       $("opening").value = opening || (e ? "0" : "");
-      $("inventory").value = e && e.inventory ? e.inventory : "";
       $("openHint").textContent = (e && typeof e.opening === "number") ? "" : (pv ? "已帶入 " + monthLabel(prevMonth(st.month)) + "的月底庫存，可修改" : "找不到上月月底庫存，請自行填寫（第一個月可填 0）");
-      $("invTag").textContent = monthLabel(st.month) + "　" + pl;
-    } else {
-      $("revenue").value = e && e.revenue ? e.revenue : "";
-      vInputs().forEach(function (inp) { var a = e && e.purchases ? e.purchases[inp.dataset.k] : 0; inp.value = a ? a : ""; });
-      var os = (e && e.others) || [];
-      oRows().forEach(function (r, i) { var o = os[i]; r.n.value = o && o.name ? o.name : ""; r.a.value = o && o.amount ? o.amount : ""; });
-      $("periodTag").textContent = monthLabel(st.month) + "　" + pl;
-      $("revLab").textContent = pl + " 實際業績";
     }
+    $("periodTag").textContent = monthLabel(st.month) + "　" + pl;
+    $("revLab").textContent = pl + " 累計實際業績";
     storeSel.value = st.storeNo;
     $("progTitle").textContent = pl + " 填報進度";
     st.dirty = false;
@@ -464,7 +454,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   }
 
   function markDirty() { if (!st.dirty) { st.dirty = true; setState("尚未儲存", "dirty"); } calc(); }
-  ["revenue", "opening", "inventory"].forEach(function (id) { $(id).addEventListener("input", markDirty); });
+  ["revenue", "opening"].forEach(function (id) { $(id).addEventListener("input", markDirty); });
   vWrap.addEventListener("input", markDirty);
   oWrap.addEventListener("input", markDirty);
 
@@ -501,17 +491,17 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   $("saveBtn").addEventListener("click", function () {
     var btn = $("saveBtn"), data;
     banner("");
+    var pur = {}, oth = [], bad = null, tot = 0;
+    vInputs().forEach(function (inp) { var a = num(inp.value); if (a > 0) { pur[inp.dataset.k] = a; tot += a; } });
+    oRows().forEach(function (r, i) {
+      var nm = r.n.value.trim(), a = num(r.a.value);
+      if (a > 0 && !nm) { bad = i + 1; }
+      if (nm || a > 0) { oth.push({ name: nm, amount: a }); tot += a; }
+    });
+    if (bad) { banner("其他 " + bad + " 有填金額，請同時填寫廠商名稱。"); $("on_" + (bad - 1)).focus(); return; }
     if (isInv()) {
-      data = { month: st.month, period: "inv", storeNo: st.storeNo, store: STORES[st.storeNo - 1], opening: num($("opening").value), inventory: num($("inventory").value), updatedAt: new Date().toISOString() };
+      data = { month: st.month, period: "inv", storeNo: st.storeNo, store: STORES[st.storeNo - 1], opening: num($("opening").value), inventory: tot, purchases: pur, others: oth, updatedAt: new Date().toISOString() };
     } else {
-      var pur = {}, oth = [], bad = null;
-      vInputs().forEach(function (inp) { var a = num(inp.value); if (a > 0) pur[inp.dataset.k] = a; });
-      oRows().forEach(function (r, i) {
-        var nm = r.n.value.trim(), a = num(r.a.value);
-        if (a > 0 && !nm) { bad = i + 1; }
-        if (nm || a > 0) oth.push({ name: nm, amount: a });
-      });
-      if (bad) { banner("其他 " + bad + " 有填金額，請同時填寫廠商名稱。"); $("on_" + (bad - 1)).focus(); return; }
       data = { month: st.month, period: st.period, storeNo: st.storeNo, store: STORES[st.storeNo - 1], revenue: num($("revenue").value), purchases: pur, others: oth, updatedAt: new Date().toISOString() };
     }
     data.id = docId(st.month, st.storeNo, st.period);
@@ -530,13 +520,13 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   function setReadOnly() {
     st.canWrite = false;
     $("saveBtn").disabled = true;
-    ["revenue", "opening", "inventory"].forEach(function (id) { $(id).disabled = true; });
+    ["revenue", "opening"].forEach(function (id) { $(id).disabled = true; });
     vInputs().forEach(function (i) { i.disabled = true; });
     oRows().forEach(function (r) { r.n.disabled = true; r.a.disabled = true; });
   }
 
   /* ---------- status ---------- */
-  function filledOk(e) { return !!e && (isInv() ? num(e.inventory) > 0 : (num(e.revenue) > 0 || totalOf(e) > 0)); }
+  function filledOk(e) { return !!e && (isInv() ? invTotal(e) > 0 : (num(e.revenue) > 0 || totalOf(e) > 0)); }
   function renderStatus() {
     var done = 0;
     Array.prototype.forEach.call(storeGrid.children, function (b) {
@@ -572,17 +562,26 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     var t = $("sumTable"), filledN = 0, h;
     $("modeSeg").hidden = isInv();
     if (isInv()) {
-      t.className = "narrow";
-      h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>期初庫存</th><th class='n'>月底庫存</th><th class='n'>庫存增減</th></tr></thead><tbody>";
-      var so = 0, sc = 0;
+      var onI = otherNames(), so = 0, sc = 0, sv = {}, sO = {};
+      h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>期初庫存</th><th class='n'>月底庫存</th><th class='n'>庫存增減</th>";
+      VENDORS.forEach(function (v) { h += "<th class='n'>" + v[1] + "</th>"; sv[v[0]] = 0; });
+      onI.forEach(function (n) { h += "<th class='n oth' title='其他廠商'>" + esc(n) + "</th>"; sO[n] = 0; });
+      h += "</tr></thead><tbody>";
       STORES.forEach(function (name, i) {
-        var e = entryOf("inv", i + 1), op = e ? openingOf(i + 1) : 0, cl = e ? num(e.inventory) : 0;
+        var e = entryOf("inv", i + 1), op = e ? openingOf(i + 1) : 0, cl = e ? invTotal(e) : 0;
         if (e) { filledN++; so += op; sc += cl; }
-        h += "<tr" + (e ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(op, !!e) + amtCell(cl, !!e) + amtCell(cl - op, !!e) + "</tr>";
+        h += "<tr" + (e ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(op, !!e) + amtCell(cl, !!e) + amtCell(cl - op, !!e);
+        VENDORS.forEach(function (v) { var a = e && e.purchases ? num(e.purchases[v[0]]) : 0; sv[v[0]] += a; h += amtCell(a, !!e); });
+        onI.forEach(function (n) { var a = otherAmt(e, n); sO[n] += a; h += amtCell(a, !!e); });
+        h += "</tr>";
       });
-      h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(so) + "</td><td class='n'>" + fmt(sc) + "</td><td class='n'>" + fmt(sc - so) + "</td></tr></tbody>";
+      h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(so) + "</td><td class='n'>" + fmt(sc) + "</td><td class='n'>" + fmt(sc - so) + "</td>";
+      VENDORS.forEach(function (v) { h += "<td class='n'>" + fmt(sv[v[0]]) + "</td>"; });
+      onI.forEach(function (n) { h += "<td class='n'>" + fmt(sO[n]) + "</td>"; });
+      h += "</tr></tbody>";
+      t.className = "";
       t.innerHTML = h;
-      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / 34 間。期初庫存預設帶入上月月底庫存。";
+      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / " + STORES.length + " 間，金額為各廠商月底盤點的庫存。期初庫存預設帶入上月月底庫存。";
       return;
     }
     t.className = "";
@@ -616,7 +615,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     onames.forEach(function (n) { h += cell(amt ? sumO[n] : (sumRev > 0 ? sumO[n] / sumRev : null), amt, true); });
     h += "</tr></tbody>";
     t.innerHTML = h;
-    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / 34 間。比例 ＝ 廠商進貨金額 ÷ 該期實際業績，業績為 0 或尚未填報的門市顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
+    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / " + STORES.length + " 間。各期金額都是當月累計。比例 ＝ 廠商進貨金額 ÷ 該期實際業績，業績為 0 或尚未填報的門市顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
   }
 
   /* ---------- actual cost rate (whole month) ---------- */
@@ -624,7 +623,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     var h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>當月實際業績</th><th class='n'>期初庫存</th><th class='n'>當月進貨</th><th class='n'>月底庫存</th><th class='n'>實際用料</th><th class='n'>實際成本率</th><th class='n'>進貨佔比</th><th style='text-align:left'>資料狀態</th></tr></thead><tbody>";
     var t = { rev: 0, op: 0, buy: 0, cl: 0, used: 0, n: 0 };
     STORES.forEach(function (name, i) {
-      var s = monthStats(i + 1), none = s.miss.length === 4;
+      var s = monthStats(i + 1), none = !s.any;
       h += "<tr" + (none ? " class='empty'" : "") + "><td>" + (i + 1) + "</td><td>" + name + "</td>";
       h += amtCell(s.rev, !none) + amtCell(s.opening, s.hasInv) + amtCell(s.buy, !none) + amtCell(s.closing, s.hasInv);
       h += amtCell(s.used, s.complete);
@@ -637,7 +636,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     h += "<tr class='total'><td></td><td>合計（資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td><td class='n'>" + fmt(t.op) + "</td><td class='n'>" + fmt(t.buy) + "</td><td class='n'>" + fmt(t.cl) + "</td><td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td class='n'>" + (t.rev > 0 ? pct(t.buy / t.rev) : "—") + "</td><td></td></tr></tbody>";
     $("costTable").innerHTML = h;
     $("costTitle").textContent = monthLabel(st.month) + "　實際成本率";
-    $("costNote").textContent = "實際用料 ＝ 期初庫存 ＋ 當月進貨（10號＋20號＋月底）－ 月底庫存。實際成本率 ＝ 實際用料 ÷ 當月實際業績（三期合計）。10號、20號、月底與月底庫存四筆都填報的門市才會計算成本率，合計也只包含這些門市。進貨佔比是進貨金額 ÷ 業績，沒有扣庫存，僅供對照。";
+    $("costNote").textContent = "10號、20號、月底填的是當月累計金額，所以當月進貨與當月實際業績取「月底」那一筆，不用三期加總。實際用料 ＝ 期初庫存 ＋ 當月進貨（月底）－ 月底庫存。實際成本率 ＝ 實際用料 ÷ 當月實際業績（月底）。月底與月底庫存兩筆都填報的門市才會計算成本率，合計也只包含這些門市。進貨佔比是進貨金額 ÷ 業績，沒有扣庫存，僅供對照。";
   }
 
   /* ---------- dashboard ---------- */
@@ -653,12 +652,14 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       BUY_PERIODS.forEach(function (p) {
         var e = entryOf(p, no); if (!e) return;
         entriesN++; buyP[p] += totalOf(e); revP[p] += num(e.revenue);
-        VENDORS.forEach(function (v) { vend[v[0]] += num(e.purchases && e.purchases[v[0]]); });
-        othersOf(e).forEach(function (o) { var n = o.name || "其他（未命名）"; oth[n] = (oth[n] || 0) + num(o.amount); });
+        if (p === "eom") {
+          VENDORS.forEach(function (v) { vend[v[0]] += num(e.purchases && e.purchases[v[0]]); });
+          othersOf(e).forEach(function (o) { var n = o.name || "其他（未命名）"; oth[n] = (oth[n] || 0) + num(o.amount); });
+        }
       });
-      var iv = entryOf("inv", no); if (iv) { entriesN++; invSum += num(iv.inventory); }
+      var iv = entryOf("inv", no); if (iv) { entriesN++; invSum += invTotal(iv); }
     });
-    var totBuy = buyP.d10 + buyP.d20 + buyP.eom, totRev = revP.d10 + revP.d20 + revP.eom;
+    var totBuy = buyP.eom, totRev = revP.eom;
 
     /* cost rate: only stores with all four entries */
     var rows = [], cRev = 0, cUsed = 0;
@@ -666,11 +667,11 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     var avg = cRev > 0 ? cUsed / cRev : null;
 
     $("kpis").innerHTML =
-      kpi("全店實際成本率", avg === null ? "—" : pct(avg), avg === null ? "尚無四筆資料齊全的門市" : "以資料完整的 " + rows.length + " 間計算") +
-      kpi("當月進貨合計", fmt(totBuy), totRev > 0 ? "佔實際業績 " + pct(totBuy / totRev) : "三期合計") +
-      kpi("當月實際業績", fmt(totRev), "三期合計") +
-      kpi("月底庫存合計", fmt(invSum), "已盤點 " + STORES.filter(function (_, i) { return !!entryOf("inv", i + 1); }).length + " / 34 間") +
-      kpi("填報完成度", entriesN + " / 136", pct(entriesN / 136) + "（34 間 × 4 期）");
+      kpi("全店實際成本率", avg === null ? "—" : pct(avg), avg === null ? "尚無月底與月底庫存都已填報的門市" : "以資料完整的 " + rows.length + " 間計算") +
+      kpi("當月進貨合計", fmt(totBuy), totRev > 0 ? "佔實際業績 " + pct(totBuy / totRev) : "月底累計") +
+      kpi("當月實際業績", fmt(totRev), "月底累計") +
+      kpi("月底庫存合計", fmt(invSum), "已盤點 " + STORES.filter(function (_, i) { return !!entryOf("inv", i + 1); }).length + " / " + STORES.length + " 間") +
+      kpi("填報完成度", entriesN + " / " + STORES.length * 4, pct(entriesN / (STORES.length * 4)) + "（" + STORES.length + " 間 × 4 期）");
 
     /* vendor share */
     var items = VENDORS.map(function (v) { return { name: v[1], amt: vend[v[0]], other: false }; });
@@ -694,7 +695,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     $("costTag").textContent = avg === null ? "" : "全店 " + pct(avg) + "，紅色高於全店";
     $("costBars").innerHTML = rows.length ? rows.map(function (r) {
       return bar(r.name, Math.max(r.rate, 0) / rmax * 100, pct(r.rate), r.rate > avg ? "" : "lo", r.name + "　用料 " + fmt(r.used) + " ÷ 業績 " + fmt(r.rev));
-    }).join("") : "<div class='empty-msg'>門市完成 10號、20號、月底與月底庫存四筆填報後，這裡會顯示各店成本率排名。</div>";
+    }).join("") : "<div class='empty-msg'>門市完成月底與月底庫存填報後，這裡會顯示各店成本率排名。</div>";
 
     /* progress matrix */
     $("matrix").innerHTML = STORES.map(function (name, i) {
@@ -703,7 +704,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       return "<div class='chip' title='" + esc(name + (miss.length ? "　尚缺：" + miss.join("、") : "　已完成")) + "'><span class='nm'>" + esc(name) + "</span><span class='sq'>" + sq + "</span></div>";
     }).join("");
 
-    $("dashNote").textContent = monthLabel(st.month) + "。資料來自各門市的填報，門市按下儲存後本頁即時更新，不需要重新整理。成本率只計入四筆資料齊全的門市。";
+    $("dashNote").textContent = monthLabel(st.month) + "。資料來自各門市的填報，門市按下儲存後本頁即時更新，不需要重新整理。成本率只計入月底與月底庫存都已填報的門市。";
   }
 
   function renderAll() { renderStatus(); renderSummary(); renderCost(); renderDash(); }
@@ -728,8 +729,15 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   $("csvBtn").addEventListener("click", function () {
     var rows;
     if (isInv()) {
-      rows = [["項次", "店別", "期初庫存", "月底庫存"]];
-      STORES.forEach(function (name, i) { var e = entryOf("inv", i + 1); rows.push(e ? [i + 1, name, openingOf(i + 1), num(e.inventory)] : [i + 1, name]); });
+      var onI = otherNames();
+      rows = [["項次", "店別", "期初庫存", "月底庫存"].concat(VENDORS.map(function (v) { return v[1]; }), onI)];
+      STORES.forEach(function (name, i) {
+        var e = entryOf("inv", i + 1); if (!e) { rows.push([i + 1, name]); return; }
+        var r = [i + 1, name, openingOf(i + 1), invTotal(e)];
+        VENDORS.forEach(function (v) { r.push(num(e.purchases && e.purchases[v[0]])); });
+        onI.forEach(function (n) { r.push(otherAmt(e, n)); });
+        rows.push(r);
+      });
     } else {
       var onames = otherNames();
       rows = [["項次", "店別", "實際業績", "原料總進貨", "總進貨佔比"]
@@ -752,14 +760,14 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     var rows = [["項次", "店別", "當月實際業績", "期初庫存", "當月進貨", "月底庫存", "實際用料", "實際成本率", "進貨佔比", "資料狀態"]];
     STORES.forEach(function (name, i) {
       var s = monthStats(i + 1);
-      if (s.miss.length === 4) { rows.push([i + 1, name, "", "", "", "", "", "", "", "未填報"]); return; }
+      if (!s.any) { rows.push([i + 1, name, "", "", "", "", "", "", "", "未填報"]); return; }
       rows.push([i + 1, name, s.rev, s.opening, s.buy, s.closing, s.complete ? s.used : "", s.complete ? s.rate.toFixed(4) : "", s.buyRate === null ? "" : s.buyRate.toFixed(4), s.complete ? "完整" : "尚缺：" + s.miss.join("、")]);
     });
     saveCsv("金春喜_" + st.month + "_實際成本率.csv", rows);
   });
 
   /* ---------- cloud: Google Apps Script + Google Sheet ---------- */
-  var API_URL = "https://script.google.com/macros/s/AKfycbz6x12kxSi1iSiBkUc39qWR8BUXmNevWh_BsCl1sPA62dTRjazK1hWEeVFDHe3VSk8nCw/exec";  /* ← 部署 Apps Script 後，把「網頁應用程式網址」貼在這兩個引號中間 */
+  var API_URL = "https://script.google.com/macros/s/AKfycbz6x12kxSi1iSiBkUc39qWR8BUXmNevWh_BsCl1sPA62dTRjazK1hWEeVFDHe3VSk8nCw/exec";
   var LS = { pin: "jcx_pin", cache: "jcx_cache_v1" };
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -797,7 +805,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     list.forEach(function (x) {
       if (!x || !x.storeNo || !PERIODS[x.period]) return;
       if (x.month === st.month) mp.set(key(x.period, x.storeNo), x);
-      else if (x.month === pm && x.period === "inv") pv.set(x.storeNo, num(x.inventory));
+      else if (x.month === pm && x.period === "inv") pv.set(x.storeNo, invTotal(x));
     });
     st.all = mp; st.prev = pv; renderAll();
     if (!st.dirty) loadForm();
