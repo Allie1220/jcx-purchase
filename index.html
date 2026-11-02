@@ -274,7 +274,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   <section id="viewSummary" hidden>
     <div class="tools">
       <div class="seg" id="modeSeg" role="group" aria-label="顯示方式">
-        <button type="button" id="modePct" aria-pressed="true">佔業績比例</button>
+        <button type="button" id="modePct" aria-pressed="true">進貨金額配比</button>
         <button type="button" id="modeAmt" aria-pressed="false">金額</button>
       </div>
       <button type="button" id="csvBtn">匯出 CSV</button>
@@ -586,7 +586,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     }
     t.className = "";
     var amt = st.mode === "amt", onames = otherNames();
-    h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>實際業績</th><th class='n'>原料總進貨</th><th class='n'>總進貨" + (amt ? "" : "佔比") + "</th>";
+    h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>實際業績</th><th class='n'>原料總進貨</th><th class='n'>總進貨" + (amt ? "" : "佔業績") + "</th>";
     VENDORS.forEach(function (v) { h += "<th class='n'>" + v[1] + "</th>"; });
     onames.forEach(function (n) { h += "<th class='n oth' title='其他廠商'>" + esc(n) + "</th>"; });
     h += "</tr></thead><tbody>";
@@ -601,21 +601,21 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       h += cell(amt ? tot : (rev > 0 ? tot / rev : null), amt, filled);
       VENDORS.forEach(function (v) {
         var a = e && e.purchases ? num(e.purchases[v[0]]) : 0; sumV[v[0]] += a;
-        h += cell(amt ? a : (rev > 0 ? a / rev : null), amt, filled);
+        h += cell(amt ? a : (tot > 0 ? a / tot : null), amt, filled);
       });
       onames.forEach(function (n) {
         var a = otherAmt(e, n); sumO[n] += a;
-        h += cell(amt ? a : (rev > 0 ? a / rev : null), amt, filled);
+        h += cell(amt ? a : (tot > 0 ? a / tot : null), amt, filled);
       });
       h += "</tr>";
     });
     h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(sumRev) + "</td><td class='n'>" + fmt(sumTot) + "</td>";
     h += cell(amt ? sumTot : (sumRev > 0 ? sumTot / sumRev : null), amt, true);
-    VENDORS.forEach(function (v) { h += cell(amt ? sumV[v[0]] : (sumRev > 0 ? sumV[v[0]] / sumRev : null), amt, true); });
-    onames.forEach(function (n) { h += cell(amt ? sumO[n] : (sumRev > 0 ? sumO[n] / sumRev : null), amt, true); });
+    VENDORS.forEach(function (v) { h += cell(amt ? sumV[v[0]] : (sumTot > 0 ? sumV[v[0]] / sumTot : null), amt, true); });
+    onames.forEach(function (n) { h += cell(amt ? sumO[n] : (sumTot > 0 ? sumO[n] / sumTot : null), amt, true); });
     h += "</tr></tbody>";
     t.innerHTML = h;
-    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / " + STORES.length + " 間。各期金額都是當月累計。比例 ＝ 廠商進貨金額 ÷ 該期實際業績，業績為 0 或尚未填報的門市顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
+    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / " + STORES.length + " 間。各期金額都是當月累計。廠商欄位的比例 ＝ 廠商進貨金額 ÷ 該店該期原料總進貨，各廠商加起來為 100%。「總進貨佔業績」＝ 原料總進貨 ÷ 實際業績。尚未填報、進貨為 0 或業績為 0 的欄位顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
   }
 
   /* ---------- actual cost rate (whole month) ---------- */
@@ -740,16 +740,16 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       });
     } else {
       var onames = otherNames();
-      rows = [["項次", "店別", "實際業績", "原料總進貨", "總進貨佔比"]
+      rows = [["項次", "店別", "實際業績", "原料總進貨", "總進貨佔業績"]
         .concat(VENDORS.map(function (v) { return v[1] + "金額"; }), onames.map(function (n) { return n + "金額"; }),
-                VENDORS.map(function (v) { return v[1] + "佔比"; }), onames.map(function (n) { return n + "佔比"; }))];
+                VENDORS.map(function (v) { return v[1] + "配比"; }), onames.map(function (n) { return n + "配比"; }))];
       STORES.forEach(function (name, i) {
         var e = entryOf(st.period, i + 1); if (!e) { rows.push([i + 1, name]); return; }
         var rev = num(e.revenue), tot = totalOf(e), r = [i + 1, name, rev, tot, rev > 0 ? (tot / rev).toFixed(4) : ""];
         var va = VENDORS.map(function (v) { return num(e.purchases && e.purchases[v[0]]); });
         var oa = onames.map(function (n) { return otherAmt(e, n); });
         va.concat(oa).forEach(function (a) { r.push(a); });
-        va.concat(oa).forEach(function (a) { r.push(rev > 0 ? (a / rev).toFixed(4) : ""); });
+        va.concat(oa).forEach(function (a) { r.push(tot > 0 ? (a / tot).toFixed(4) : ""); });
         rows.push(r);
       });
     }
