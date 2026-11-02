@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>金春喜進貨填報</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+[hidden] { display: none !important; }
+body { margin: 0; }
+/* Layout: header holds month + period (10號/20號/月底/月底庫存) shared by entry and summary.
+   Entry = form beside a 34-store progress grid; summary and cost = wide sticky-column tables. */
+:root {
+  --bg: #0E1016;
+  --surface: #171A23;
+  --ink: #ECEEF2;
+  --muted: #8D95A6;
+  --line: #2A2F3B;
+  --accent: #E6C35A;
+  --accent-ink: #1A1500;
+  --accent-soft: #2B2612;
+  --ok: #4FD08C;
+  --ok-soft: #12291F;
+  --warn: #E8A64C;
+  --warn-soft: #33260F;
+  --f-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --f-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+header.top { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; padding-bottom: 14px; }
+h1 { color: var(--accent); font-family: var(--f-display); font-size: 28px; line-height: 1.2; margin: 0; letter-spacing: .02em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.pickers { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.monthbox { display: flex; align-items: center; gap: 8px; }
+label.lab { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+select, input[type=number], input[type=text] {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  padding: 9px 10px; min-height: 42px; width: 100%;
+}
+select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.monthbox select { width: auto; min-width: 150px; }
+nav.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+nav.tabs a {
+  border-radius: 8px; padding: 10px 16px; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+nav.tabs a[aria-current="page"] { color: var(--accent-ink); background: var(--accent); font-weight: 700; }
+.banner { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 14px; background: var(--warn-soft); color: var(--warn); }
+.banner[hidden] { display: none; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; min-height: 42px; background: var(--surface); padding: 0 14px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* entry view */
+.entry { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
+.panel h2 { font-size: 16px; margin: 0 0 12px; }
+.panel h2 small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.money { position: relative; }
+.money span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; pointer-events: none; }
+.money input { padding-left: 38px; font-family: var(--f-num); text-align: right; font-variant-numeric: tabular-nums; }
+.hint { font-size: 12px; color: var(--muted); min-height: 18px; font-variant-numeric: tabular-nums; }
+.hint.warn { color: var(--warn); }
+.vendors { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.others { display: grid; gap: 10px; margin-bottom: 18px; }
+.orow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.orow .hint { grid-column: 2; margin-top: -6px; }
+.totalbar { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.totalbar .k { font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+.totalbar .v { font-family: var(--f-num); font-size: 22px; font-variant-numeric: tabular-nums; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button { font: inherit; cursor: pointer; border-radius: 6px; min-height: 42px; padding: 0 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; padding: 0 28px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.state { font-size: 13px; color: var(--muted); }
+.state.dirty { color: var(--warn); }
+.state.saved { color: var(--ok); }
+.discard { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; font-size: 14px; }
+.discard[hidden] { display: none; }
+
+.progress { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.progress b { font-family: var(--f-num); font-size: 22px; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+.stores { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.stores button { min-height: 38px; padding: 0 6px; font-size: 13px; display: flex; align-items: center; gap: 6px; justify-content: flex-start; text-align: left; overflow: hidden; }
+.stores button .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.stores button.done .dot { background: var(--ok); }
+.stores button.cur { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.stores button .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* summary + cost views */
+.tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tools .seg button { min-height: 38px; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1100px; font-variant-numeric: tabular-nums; }
+table.narrow { min-width: 620px; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface); position: sticky; top: 0; letter-spacing: .04em; }
+th.oth { color: var(--warn); }
+td.n { font-family: var(--f-num); }
+td:nth-child(1), th:nth-child(1) { text-align: center; color: var(--muted); width: 48px; }
+td:nth-child(2), th:nth-child(2) { text-align: left; position: sticky; left: 0; background: var(--surface); border-right: 1px solid var(--line); font-weight: 500; }
+tr.empty td { color: var(--muted); }
+tr.total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--ink); }
+tr.total td:nth-child(2) { background: var(--bg); }
+td.na { color: var(--muted); }
+td.rate { font-weight: 700; }
+td.miss { color: var(--warn); text-align: left; font-family: var(--f-body); }
+td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
+.note { font-size: 12px; color: var(--muted); margin-top: 10px; max-width: 80ch; }
+.sync { font-size: 13px; color: var(--muted); cursor: default; }
+.sync.ok { color: var(--ok); }
+.sync.warn { color: var(--warn); cursor: pointer; }
+.gate { position: fixed; inset: 0; background: rgba(0,0,0,.72); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.gatebox { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px; width: min(100%, 340px); display: grid; gap: 12px; }
+.gatebox h2 { margin: 0; font-size: 18px; color: var(--accent); }
+.gatebox p { margin: 0; font-size: 13px; color: var(--muted); min-height: 20px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 6px; font-size: 14px; z-index: 20; }
+.toast[hidden] { display: none; }
+
+/* dashboard */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+.kpi { background: var(--surface); padding: 14px 16px; min-width: 0; }
+.kpi .k { font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+.kpi .v { font-family: var(--f-num); font-size: 26px; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.kpi .s { font-size: 12px; color: var(--muted); }
+.dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.brow { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) 9.5em; gap: 10px; align-items: center; padding: 3px 0; font-size: 13px; }
+.brow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brow .val { font-family: var(--f-num); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.track { height: 12px; background: var(--bg); border-radius: 2px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--accent); }
+.track i.oth { background: var(--warn); }
+.track i.lo { background: var(--muted); }
+.scroll { max-height: 420px; overflow: auto; }
+.trend { display: flex; gap: 18px; align-items: flex-end; height: 200px; }
+.tcol { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; gap: 4px; }
+.tcol .plot { flex: 1; display: flex; align-items: flex-end; width: 100%; justify-content: center; }
+.tbar { width: 100%; max-width: 90px; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 2px; }
+.tval { font-family: var(--f-num); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tlab { font-size: 13px; font-weight: 500; }
+.tsub { font-size: 12px; color: var(--muted); }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; }
+.chip { display: flex; justify-content: space-between; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; min-width: 0; }
+.chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .sq { display: flex; gap: 3px; flex: none; }
+.chip .sq b { width: 9px; height: 9px; border-radius: 2px; background: var(--line); }
+.chip .sq b.on { background: var(--ok); }
+.empty-msg { color: var(--muted); font-size: 13px; padding: 8px 0; }
+@media (max-width: 860px) { .dgrid { grid-template-columns: minmax(0, 1fr); } .brow { grid-template-columns: 6.5em minmax(0, 1fr) 8.5em; } }
+@media (max-width: 860px) {
+  .entry { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>金春喜進貨填報</h1>
+      <div class="sub">10號、20號、月底填進貨，月底庫存盤點後自動算出實際用料與實際成本率。</div>
+    </div>
+    <div class="pickers">
+      <span class="sync" id="sync" title="點此重新輸入密碼"></span>
+      <div class="monthbox">
+        <label class="lab" for="monthSel">月份</label>
+        <select id="monthSel"></select>
+      </div>
+      <div class="seg" id="periodSeg" role="group" aria-label="填報期別">
+        <button type="button" data-p="d10" aria-pressed="true">10號</button>
+        <button type="button" data-p="d20" aria-pressed="false">20號</button>
+        <button type="button" data-p="eom" aria-pressed="false">月底</button>
+        <button type="button" data-p="inv" aria-pressed="false">月底庫存</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="頁面">
+    <a href="#entry" id="tabEntry">門市填報</a>
+    <a href="#dash" id="tabDash">儀表板</a>
+    <a href="#summary" id="tabSummary">進貨比例總表</a>
+    <a href="#cost" id="tabCost">實際成本率</a>
+  </nav>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section id="viewEntry" class="entry">
+    <div class="panel">
+      <div class="discard" id="discard" hidden>
+        <span>目前這筆資料有尚未儲存的變更。</span>
+        <button type="button" id="discardGo">捨棄並切換</button>
+        <button type="button" id="discardStay">繼續編輯</button>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label class="lab" for="storeSel">店別</label>
+          <select id="storeSel"></select>
+        </div>
+        <div class="field" id="revField">
+          <label class="lab" for="revenue" id="revLab">實際業績</label>
+          <div class="money"><span>NT$</span><input id="revenue" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
+          <div class="hint">本期門市實際營業額</div>
+        </div>
+      </div>
+
+      <div id="buyBlock">
+        <h2>各廠商進貨金額 <small id="periodTag"></small></h2>
+        <div class="vendors" id="vendors"></div>
+        <h2>其他廠商 <small>名稱自行填寫，最多 5 家</small></h2>
+        <div class="others" id="others"></div>
+        <div class="totalbar">
+          <div><div class="k">原料總進貨</div><div class="v" id="totalAmt">0</div></div>
+          <div><div class="k">佔實際業績</div><div class="v" id="totalPct">—</div></div>
+        </div>
+      </div>
+
+      <div id="invBlock" hidden>
+        <h2>庫存盤點 <small id="invTag"></small></h2>
+        <div class="row2">
+          <div class="field">
+            <label class="lab" for="opening">期初庫存（上月月底庫存）</label>
+            <div class="money"><span>NT$</span><input id="opening" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
+            <div class="hint" id="openHint"></div>
+          </div>
+          <div class="field">
+            <label class="lab" for="inventory">月底庫存</label>
+            <div class="money"><span>NT$</span><input id="inventory" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
+            <div class="hint">本月底盤點的庫存金額</div>
+          </div>
+        </div>
+        <div class="totalbar">
+          <div><div class="k">當月進貨（三期）</div><div class="v" id="icBuy">—</div></div>
+          <div><div class="k">當月業績（三期）</div><div class="v" id="icRev">—</div></div>
+          <div><div class="k">實際用料</div><div class="v" id="icUsed">—</div></div>
+          <div><div class="k">實際成本率</div><div class="v" id="icRate">—</div></div>
+        </div>
+        <div class="hint warn" id="invMiss"></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="primary" id="saveBtn">儲存</button>
+        <span class="state" id="saveState"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="progress"><h2 style="margin:0" id="progTitle">填報進度</h2><span><b id="doneN">0</b> / 34 間</span></div>
+      <div class="bar"><i id="doneBar"></i></div>
+      <div class="stores" id="stores"></div>
+    </div>
+  </section>
+
+  <section id="viewDash" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="dgrid">
+      <div class="panel"><h2>各廠商進貨佔比 <small>三期合計，佔全店進貨</small></h2><div id="vendBars"></div></div>
+      <div class="panel"><h2>三期進貨金額 <small>全店合計</small></h2><div id="trend"></div></div>
+      <div class="panel"><h2>各店實際成本率 <small id="costTag"></small></h2><div class="scroll" id="costBars"></div></div>
+      <div class="panel"><h2>填報進度 <small>方塊依序為 10號、20號、月底、庫存</small></h2><div class="chips" id="matrix"></div></div>
+    </div>
+    <div class="note" id="dashNote"></div>
+  </section>
+
+  <section id="viewSummary" hidden>
+    <div class="tools">
+      <div class="seg" id="modeSeg" role="group" aria-label="顯示方式">
+        <button type="button" id="modePct" aria-pressed="true">佔業績比例</button>
+        <button type="button" id="modeAmt" aria-pressed="false">金額</button>
+      </div>
+      <button type="button" id="csvBtn">匯出 CSV</button>
+    </div>
+    <div class="tablewrap"><table id="sumTable"></table></div>
+    <div class="note" id="sumNote"></div>
+  </section>
+
+  <section id="viewCost" hidden>
+    <div class="tools">
+      <div class="sub" id="costTitle"></div>
+      <button type="button" id="csvCostBtn">匯出 CSV</button>
+    </div>
+    <div class="tablewrap"><table id="costTable"></table></div>
+    <div class="note" id="costNote"></div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="gate" id="gate" hidden>
+  <form class="gatebox" id="gateForm">
+    <h2>請輸入填報密碼</h2>
+    <p id="gateMsg">密碼由總部提供，每台裝置只需輸入一次。</p>
+    <input id="pinInput" type="password" autocomplete="current-password" placeholder="填報密碼" required>
+    <button type="submit" class="primary">進入</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  var VENDORS = [["yc","央廚"],["tc","統倉"],["msj","美食家"],["cs1","菜商（營業）"],["cs2","菜商（飯菜）"],["hx","海鮮"],["yr","野人"],["hj","韓濟"],["hg","韓廣"],["lx","龍行"],["cp","岑品"],["jy","季遙"]];
+  var STORES = ["台中遠百","大直","中和環球","板橋遠百","義享","桃園遠百","新竹關新","中和四號","高雄遠百","嘉義遠百","南京","基隆","竹北遠百","板橋誠品","長安","內湖瑞光","桃園A19","內壢","南港","水湳","松菸","台中復興","竹圍","苗栗","仁德萬","秀泰站前","新莊中正","秀泰文心","新營萬","內湖萬","中壢大","新光忠孝","屏東環球","廣三SOGO"];
+  var PERIODS = { d10: "10號", d20: "20號", eom: "月底", inv: "月底庫存" };
+  var BUY_PERIODS = ["d10", "d20", "eom"];
+  var NOTHER = 5;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  var num = function (v) { var x = parseFloat(v); return isFinite(x) && x > 0 ? x : 0; };
+  var fmt = function (n) { return Math.round(n).toLocaleString("zh-TW"); };
+  var pct = function (n) { return (n * 100).toFixed(1) + "%"; };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var monthLabel = function (mo) { return mo.replace("-", " 年 ") + " 月"; };
+  var prevMonth = function (mo) { var p = mo.split("-"), y = +p[0], m = +p[1] - 1; if (m < 1) { m = 12; y--; } return y + "-" + pad(m); };
+
+  var now = new Date();
+  var day = now.getDate();
+  var st = {
+    month: now.getFullYear() + "-" + pad(now.getMonth() + 1),
+    period: day <= 14 ? "d10" : (day <= 24 ? "d20" : "eom"),
+    storeNo: 1, all: new Map(), prev: new Map(), dirty: false, pending: null,
+    db: null, canWrite: true, unsubs: [], mode: "pct", view: "entry"
+  };
+  var key = function (p, no) { return p + "_" + no; };
+  var entryOf = function (p, no) { return st.all.get(key(p, no)); };
+  var cur = function () { return entryOf(st.period, st.storeNo); };
+  var isInv = function () { return st.period === "inv"; };
+
+  /* ---------- static UI ---------- */
+  var monthSel = $("monthSel");
+  for (var y = 2026; y <= 2027; y++) for (var m = 1; m <= 12; m++) {
+    var o = document.createElement("option"); o.value = y + "-" + pad(m); o.textContent = y + " 年 " + m + " 月"; monthSel.appendChild(o);
+  }
+  if (!monthSel.querySelector('option[value="' + st.month + '"]')) { var oo = document.createElement("option"); oo.value = st.month; oo.textContent = st.month; monthSel.appendChild(oo); }
+  monthSel.value = st.month;
+
+  var storeSel = $("storeSel");
+  STORES.forEach(function (n, i) { var o = document.createElement("option"); o.value = i + 1; o.textContent = (i + 1) + " " + n; storeSel.appendChild(o); });
+
+  var vWrap = $("vendors");
+  VENDORS.forEach(function (v) {
+    var d = document.createElement("div"); d.className = "field";
+    d.innerHTML = '<label class="lab" for="v_' + v[0] + '">' + v[1] + '</label><div class="money"><span>NT$</span><input id="v_' + v[0] + '" data-k="' + v[0] + '" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div><div class="hint" id="h_' + v[0] + '"></div>';
+    vWrap.appendChild(d);
+  });
+
+  var oWrap = $("others");
+  for (var i = 0; i < NOTHER; i++) {
+    var r = document.createElement("div"); r.className = "orow";
+    r.innerHTML = '<div class="field"><label class="lab" for="on_' + i + '">其他 ' + (i + 1) + ' 廠商名稱</label><input id="on_' + i + '" type="text" maxlength="20" placeholder="例如：蛋商" autocomplete="off"></div>' +
+      '<div class="field"><label class="lab" for="oa_' + i + '">金額</label><div class="money"><span>NT$</span><input id="oa_' + i + '" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div></div>' +
+      '<div class="hint" id="oh_' + i + '"></div>';
+    oWrap.appendChild(r);
+  }
+
+  var storeGrid = $("stores");
+  STORES.forEach(function (n, i) {
+    var b = document.createElement("button"); b.type = "button"; b.dataset.no = i + 1;
+    b.innerHTML = '<i class="dot"></i><span class="nm">' + n + "</span>";
+    b.addEventListener("click", function () { request({ type: "store", v: i + 1 }); });
+    storeGrid.appendChild(b);
+  });
+
+  /* ---------- totals ---------- */
+  function othersOf(e) { return (e && e.others) ? e.others.filter(function (o) { return o && (o.name || num(o.amount) > 0); }) : []; }
+  function totalOf(e) {
+    var t = 0;
+    if (e && e.purchases) for (var k in e.purchases) t += num(e.purchases[k]);
+    othersOf(e).forEach(function (o) { t += num(o.amount); });
+    return t;
+  }
+  function openingOf(no) {
+    var e = entryOf("inv", no);
+    if (e && typeof e.opening === "number") return e.opening;
+    return st.prev.get(no) || 0;
+  }
+  /* month figures for one store: three purchase periods + month-end inventory */
+  function monthStats(no) {
+    var rev = 0, buy = 0, miss = [];
+    BUY_PERIODS.forEach(function (p) {
+      var e = entryOf(p, no);
+      if (!e) miss.push(PERIODS[p]); else { rev += num(e.revenue); buy += totalOf(e); }
+    });
+    var inv = entryOf("inv", no);
+    if (!inv) miss.push(PERIODS.inv);
+    var opening = openingOf(no), closing = inv ? num(inv.inventory) : 0;
+    var complete = miss.length === 0 && rev > 0;
+    var used = opening + buy - closing;
+    return { rev: rev, buy: buy, opening: opening, closing: closing, miss: miss, hasInv: !!inv, complete: complete, used: used, rate: complete ? used / rev : null, buyRate: rev > 0 ? buy / rev : null };
+  }
+
+  /* ---------- form ---------- */
+  function docId(month, no, p) { return month.replace("-", "") + "_" + pad(no) + "_" + p; }
+  function vInputs() { return Array.prototype.slice.call(vWrap.querySelectorAll("input")); }
+  function oRows() { var a = []; for (var i = 0; i < NOTHER; i++) a.push({ n: $("on_" + i), a: $("oa_" + i), h: $("oh_" + i) }); return a; }
+
+  function calc() {
+    if (isInv()) {
+      var s = monthStats(st.storeNo), op = num($("opening").value), cl = num($("inventory").value);
+      var haveThree = BUY_PERIODS.every(function (p) { return !!entryOf(p, st.storeNo); });
+      $("icBuy").textContent = haveThree ? fmt(s.buy) : "—";
+      $("icRev").textContent = haveThree ? fmt(s.rev) : "—";
+      if (haveThree && s.rev > 0) {
+        var used = op + s.buy - cl;
+        $("icUsed").textContent = fmt(used);
+        $("icRate").textContent = pct(used / s.rev);
+        $("invMiss").textContent = "";
+      } else {
+        $("icUsed").textContent = "—"; $("icRate").textContent = "—";
+        var miss = BUY_PERIODS.filter(function (p) { return !entryOf(p, st.storeNo); }).map(function (p) { return PERIODS[p]; });
+        $("invMiss").textContent = miss.length ? "尚未填報：" + miss.join("、") + "。三期都填好後才能算出實際成本率。" : "三期實際業績合計為 0，無法計算成本率。";
+      }
+      return;
+    }
+    var rev = num($("revenue").value), total = 0;
+    vInputs().forEach(function (inp) {
+      var a = num(inp.value); total += a;
+      $("h_" + inp.dataset.k).textContent = (rev > 0 && a > 0) ? "佔業績 " + pct(a / rev) : "";
+    });
+    oRows().forEach(function (r) {
+      var a = num(r.a.value); total += a;
+      r.h.textContent = (rev > 0 && a > 0) ? "佔業績 " + pct(a / rev) : "";
+    });
+    $("totalAmt").textContent = fmt(total);
+    $("totalPct").textContent = rev > 0 ? pct(total / rev) : "—";
+  }
+
+  function setState(txt, cls) { var s = $("saveState"); s.textContent = txt; s.className = "state " + (cls || ""); }
+
+  function loadForm() {
+    var e = cur(), inv = isInv(), pl = PERIODS[st.period];
+    $("revField").hidden = inv; $("buyBlock").hidden = inv; $("invBlock").hidden = !inv;
+    if (inv) {
+      var pv = st.prev.get(st.storeNo);
+      var opening = e && typeof e.opening === "number" ? e.opening : (pv || "");
+      $("opening").value = opening || (e ? "0" : "");
+      $("inventory").value = e && e.inventory ? e.inventory : "";
+      $("openHint").textContent = (e && typeof e.opening === "number") ? "" : (pv ? "已帶入 " + monthLabel(prevMonth(st.month)) + "的月底庫存，可修改" : "找不到上月月底庫存，請自行填寫（第一個月可填 0）");
+      $("invTag").textContent = monthLabel(st.month) + "　" + pl;
+    } else {
+      $("revenue").value = e && e.revenue ? e.revenue : "";
+      vInputs().forEach(function (inp) { var a = e && e.purchases ? e.purchases[inp.dataset.k] : 0; inp.value = a ? a : ""; });
+      var os = (e && e.others) || [];
+      oRows().forEach(function (r, i) { var o = os[i]; r.n.value = o && o.name ? o.name : ""; r.a.value = o && o.amount ? o.amount : ""; });
+      $("periodTag").textContent = monthLabel(st.month) + "　" + pl;
+      $("revLab").textContent = pl + " 實際業績";
+    }
+    storeSel.value = st.storeNo;
+    $("progTitle").textContent = pl + " 填報進度";
+    st.dirty = false;
+    setState(e ? "已儲存於 " + new Date(e.updatedAt).toLocaleString("zh-TW", { hour12: false }) : "此期尚未填報", "");
+    calc();
+  }
+
+  function markDirty() { if (!st.dirty) { st.dirty = true; setState("尚未儲存", "dirty"); } calc(); }
+  ["revenue", "opening", "inventory"].forEach(function (id) { $(id).addEventListener("input", markDirty); });
+  vWrap.addEventListener("input", markDirty);
+  oWrap.addEventListener("input", markDirty);
+
+  /* switching store / month / period, with a guard for unsaved edits */
+  function same(c) { return (c.type === "store" && c.v === st.storeNo) || (c.type === "month" && c.v === st.month) || (c.type === "period" && c.v === st.period); }
+  function request(c) {
+    if (same(c)) return;
+    if (st.dirty) { st.pending = c; $("discard").hidden = false; syncPickers(); return; }
+    apply(c);
+  }
+  function apply(c) {
+    if (c.type === "store") st.storeNo = c.v;
+    else if (c.type === "period") st.period = c.v;
+    else if (c.type === "month") { st.month = c.v; st.all = new Map(); st.prev = new Map(); subscribe(); }
+    syncPickers(); loadForm(); renderAll();
+  }
+  function syncPickers() {
+    monthSel.value = st.month; storeSel.value = st.storeNo;
+    Array.prototype.forEach.call($("periodSeg").children, function (b) { b.setAttribute("aria-pressed", b.dataset.p === st.period); });
+  }
+  storeSel.addEventListener("change", function () { request({ type: "store", v: parseInt(storeSel.value, 10) }); });
+  monthSel.addEventListener("change", function () { request({ type: "month", v: monthSel.value }); });
+  $("periodSeg").addEventListener("click", function (ev) { var b = ev.target.closest("button"); if (b) request({ type: "period", v: b.dataset.p }); });
+  $("discardStay").addEventListener("click", function () { st.pending = null; $("discard").hidden = true; });
+  $("discardGo").addEventListener("click", function () {
+    var p = st.pending; st.pending = null; $("discard").hidden = true; st.dirty = false;
+    if (p) apply(p);
+  });
+
+  var toastT;
+  function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 2600); }
+  function banner(t) { var b = $("banner"); b.textContent = t || ""; b.hidden = !t; }
+
+  $("saveBtn").addEventListener("click", function () {
+    var btn = $("saveBtn"), data;
+    banner("");
+    if (isInv()) {
+      data = { month: st.month, period: "inv", storeNo: st.storeNo, store: STORES[st.storeNo - 1], opening: num($("opening").value), inventory: num($("inventory").value), updatedAt: new Date().toISOString() };
+    } else {
+      var pur = {}, oth = [], bad = null;
+      vInputs().forEach(function (inp) { var a = num(inp.value); if (a > 0) pur[inp.dataset.k] = a; });
+      oRows().forEach(function (r, i) {
+        var nm = r.n.value.trim(), a = num(r.a.value);
+        if (a > 0 && !nm) { bad = i + 1; }
+        if (nm || a > 0) oth.push({ name: nm, amount: a });
+      });
+      if (bad) { banner("其他 " + bad + " 有填金額，請同時填寫廠商名稱。"); $("on_" + (bad - 1)).focus(); return; }
+      data = { month: st.month, period: st.period, storeNo: st.storeNo, store: STORES[st.storeNo - 1], revenue: num($("revenue").value), purchases: pur, others: oth, updatedAt: new Date().toISOString() };
+    }
+    data.id = docId(st.month, st.storeNo, st.period);
+    btn.disabled = true; setState("儲存中…", "");
+    Cloud.save(data).then(function () {
+      st.dirty = false; st.all.set(key(data.period, data.storeNo), data);
+      setState("已儲存", "saved"); toast(STORES[st.storeNo - 1] + "　" + PERIODS[st.period] + " 已儲存");
+      renderAll(); refresh();
+    }).catch(function (e) {
+      if (e && e.message === "pin") askPin("密碼錯誤，請重新輸入。");
+      else banner("儲存失敗，請確認網路連線後再按一次儲存。");
+      setState("儲存失敗", "dirty");
+    }).then(function () { btn.disabled = false; });
+  });
+
+  function setReadOnly() {
+    st.canWrite = false;
+    $("saveBtn").disabled = true;
+    ["revenue", "opening", "inventory"].forEach(function (id) { $(id).disabled = true; });
+    vInputs().forEach(function (i) { i.disabled = true; });
+    oRows().forEach(function (r) { r.n.disabled = true; r.a.disabled = true; });
+  }
+
+  /* ---------- status ---------- */
+  function filledOk(e) { return !!e && (isInv() ? num(e.inventory) > 0 : (num(e.revenue) > 0 || totalOf(e) > 0)); }
+  function renderStatus() {
+    var done = 0;
+    Array.prototype.forEach.call(storeGrid.children, function (b) {
+      var no = parseInt(b.dataset.no, 10), ok = filledOk(entryOf(st.period, no));
+      if (ok) done++;
+      b.classList.toggle("done", ok); b.classList.toggle("cur", no === st.storeNo);
+    });
+    $("doneN").textContent = done;
+    $("doneBar").style.width = (done / STORES.length * 100) + "%";
+  }
+
+  /* ---------- summary (selected period) ---------- */
+  function otherNames() {
+    var names = [];
+    STORES.forEach(function (_, i) {
+      othersOf(entryOf(st.period, i + 1)).forEach(function (o) {
+        var n = o.name || "其他（未命名）"; if (names.indexOf(n) < 0) names.push(n);
+      });
+    });
+    return names;
+  }
+  function otherAmt(e, name) {
+    var t = 0; othersOf(e).forEach(function (o) { if ((o.name || "其他（未命名）") === name) t += num(o.amount); });
+    return t;
+  }
+  function cell(v, amt, filled) {
+    if (v === null || !filled) return "<td class='n na'>—</td>";
+    return "<td class='n'>" + (amt ? fmt(v) : pct(v)) + "</td>";
+  }
+  function amtCell(v, show) { return "<td class='n" + (show ? "" : " na") + "'>" + (show ? fmt(v) : "—") + "</td>"; }
+
+  function renderSummary() {
+    var t = $("sumTable"), filledN = 0, h;
+    $("modeSeg").hidden = isInv();
+    if (isInv()) {
+      t.className = "narrow";
+      h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>期初庫存</th><th class='n'>月底庫存</th><th class='n'>庫存增減</th></tr></thead><tbody>";
+      var so = 0, sc = 0;
+      STORES.forEach(function (name, i) {
+        var e = entryOf("inv", i + 1), op = e ? openingOf(i + 1) : 0, cl = e ? num(e.inventory) : 0;
+        if (e) { filledN++; so += op; sc += cl; }
+        h += "<tr" + (e ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(op, !!e) + amtCell(cl, !!e) + amtCell(cl - op, !!e) + "</tr>";
+      });
+      h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(so) + "</td><td class='n'>" + fmt(sc) + "</td><td class='n'>" + fmt(sc - so) + "</td></tr></tbody>";
+      t.innerHTML = h;
+      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / 34 間。期初庫存預設帶入上月月底庫存。";
+      return;
+    }
+    t.className = "";
+    var amt = st.mode === "amt", onames = otherNames();
+    h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>實際業績</th><th class='n'>原料總進貨</th><th class='n'>總進貨" + (amt ? "" : "佔比") + "</th>";
+    VENDORS.forEach(function (v) { h += "<th class='n'>" + v[1] + "</th>"; });
+    onames.forEach(function (n) { h += "<th class='n oth' title='其他廠商'>" + esc(n) + "</th>"; });
+    h += "</tr></thead><tbody>";
+    var sumRev = 0, sumTot = 0, sumV = {}, sumO = {};
+    VENDORS.forEach(function (v) { sumV[v[0]] = 0; });
+    onames.forEach(function (n) { sumO[n] = 0; });
+    STORES.forEach(function (name, i) {
+      var e = entryOf(st.period, i + 1), rev = e ? num(e.revenue) : 0, tot = totalOf(e), filled = !!e;
+      if (filled) filledN++;
+      sumRev += rev; sumTot += tot;
+      h += "<tr" + (filled ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(rev, filled) + amtCell(tot, filled);
+      h += cell(amt ? tot : (rev > 0 ? tot / rev : null), amt, filled);
+      VENDORS.forEach(function (v) {
+        var a = e && e.purchases ? num(e.purchases[v[0]]) : 0; sumV[v[0]] += a;
+        h += cell(amt ? a : (rev > 0 ? a / rev : null), amt, filled);
+      });
+      onames.forEach(function (n) {
+        var a = otherAmt(e, n); sumO[n] += a;
+        h += cell(amt ? a : (rev > 0 ? a / rev : null), amt, filled);
+      });
+      h += "</tr>";
+    });
+    h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(sumRev) + "</td><td class='n'>" + fmt(sumTot) + "</td>";
+    h += cell(amt ? sumTot : (sumRev > 0 ? sumTot / sumRev : null), amt, true);
+    VENDORS.forEach(function (v) { h += cell(amt ? sumV[v[0]] : (sumRev > 0 ? sumV[v[0]] / sumRev : null), amt, true); });
+    onames.forEach(function (n) { h += cell(amt ? sumO[n] : (sumRev > 0 ? sumO[n] / sumRev : null), amt, true); });
+    h += "</tr></tbody>";
+    t.innerHTML = h;
+    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / 34 間。比例 ＝ 廠商進貨金額 ÷ 該期實際業績，業績為 0 或尚未填報的門市顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
+  }
+
+  /* ---------- actual cost rate (whole month) ---------- */
+  function renderCost() {
+    var h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>當月實際業績</th><th class='n'>期初庫存</th><th class='n'>當月進貨</th><th class='n'>月底庫存</th><th class='n'>實際用料</th><th class='n'>實際成本率</th><th class='n'>進貨佔比</th><th style='text-align:left'>資料狀態</th></tr></thead><tbody>";
+    var t = { rev: 0, op: 0, buy: 0, cl: 0, used: 0, n: 0 };
+    STORES.forEach(function (name, i) {
+      var s = monthStats(i + 1), none = s.miss.length === 4;
+      h += "<tr" + (none ? " class='empty'" : "") + "><td>" + (i + 1) + "</td><td>" + name + "</td>";
+      h += amtCell(s.rev, !none) + amtCell(s.opening, s.hasInv) + amtCell(s.buy, !none) + amtCell(s.closing, s.hasInv);
+      h += amtCell(s.used, s.complete);
+      h += "<td class='n rate" + (s.complete ? "" : " na") + "'>" + (s.complete ? pct(s.rate) : "—") + "</td>";
+      h += "<td class='n" + (s.buyRate === null || none ? " na" : "") + "'>" + (s.buyRate === null || none ? "—" : pct(s.buyRate)) + "</td>";
+      h += s.complete ? "<td class='okc'>完整</td>" : "<td class='miss'>" + (none ? "未填報" : "尚缺：" + s.miss.join("、")) + "</td>";
+      h += "</tr>";
+      if (s.complete) { t.n++; t.rev += s.rev; t.op += s.opening; t.buy += s.buy; t.cl += s.closing; t.used += s.used; }
+    });
+    h += "<tr class='total'><td></td><td>合計（資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td><td class='n'>" + fmt(t.op) + "</td><td class='n'>" + fmt(t.buy) + "</td><td class='n'>" + fmt(t.cl) + "</td><td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td class='n'>" + (t.rev > 0 ? pct(t.buy / t.rev) : "—") + "</td><td></td></tr></tbody>";
+    $("costTable").innerHTML = h;
+    $("costTitle").textContent = monthLabel(st.month) + "　實際成本率";
+    $("costNote").textContent = "實際用料 ＝ 期初庫存 ＋ 當月進貨（10號＋20號＋月底）－ 月底庫存。實際成本率 ＝ 實際用料 ÷ 當月實際業績（三期合計）。10號、20號、月底與月底庫存四筆都填報的門市才會計算成本率，合計也只包含這些門市。進貨佔比是進貨金額 ÷ 業績，沒有扣庫存，僅供對照。";
+  }
+
+  /* ---------- dashboard ---------- */
+  function kpi(k, v, s) { return "<div class='kpi'><div class='k'>" + k + "</div><div class='v'>" + v + "</div><div class='s'>" + s + "</div></div>"; }
+  function bar(name, w, val, cls, title) {
+    return "<div class='brow' title='" + esc(title || name) + "'><span class='nm'>" + esc(name) + "</span><div class='track'><i class='" + (cls || "") + "' style='width:" + Math.max(0, Math.min(100, w)).toFixed(1) + "%'></i></div><span class='val'>" + val + "</span></div>";
+  }
+  function renderDash() {
+    var vend = {}, oth = {}, buyP = { d10: 0, d20: 0, eom: 0 }, revP = { d10: 0, d20: 0, eom: 0 }, invSum = 0, entriesN = 0;
+    VENDORS.forEach(function (v) { vend[v[0]] = 0; });
+    STORES.forEach(function (_, i) {
+      var no = i + 1;
+      BUY_PERIODS.forEach(function (p) {
+        var e = entryOf(p, no); if (!e) return;
+        entriesN++; buyP[p] += totalOf(e); revP[p] += num(e.revenue);
+        VENDORS.forEach(function (v) { vend[v[0]] += num(e.purchases && e.purchases[v[0]]); });
+        othersOf(e).forEach(function (o) { var n = o.name || "其他（未命名）"; oth[n] = (oth[n] || 0) + num(o.amount); });
+      });
+      var iv = entryOf("inv", no); if (iv) { entriesN++; invSum += num(iv.inventory); }
+    });
+    var totBuy = buyP.d10 + buyP.d20 + buyP.eom, totRev = revP.d10 + revP.d20 + revP.eom;
+
+    /* cost rate: only stores with all four entries */
+    var rows = [], cRev = 0, cUsed = 0;
+    STORES.forEach(function (name, i) { var s = monthStats(i + 1); if (s.complete) { rows.push({ name: name, rate: s.rate, used: s.used, rev: s.rev }); cRev += s.rev; cUsed += s.used; } });
+    var avg = cRev > 0 ? cUsed / cRev : null;
+
+    $("kpis").innerHTML =
+      kpi("全店實際成本率", avg === null ? "—" : pct(avg), avg === null ? "尚無四筆資料齊全的門市" : "以資料完整的 " + rows.length + " 間計算") +
+      kpi("當月進貨合計", fmt(totBuy), totRev > 0 ? "佔實際業績 " + pct(totBuy / totRev) : "三期合計") +
+      kpi("當月實際業績", fmt(totRev), "三期合計") +
+      kpi("月底庫存合計", fmt(invSum), "已盤點 " + STORES.filter(function (_, i) { return !!entryOf("inv", i + 1); }).length + " / 34 間") +
+      kpi("填報完成度", entriesN + " / 136", pct(entriesN / 136) + "（34 間 × 4 期）");
+
+    /* vendor share */
+    var items = VENDORS.map(function (v) { return { name: v[1], amt: vend[v[0]], other: false }; });
+    Object.keys(oth).forEach(function (n) { items.push({ name: n, amt: oth[n], other: true }); });
+    items = items.filter(function (x) { return x.amt > 0; }).sort(function (a, b) { return b.amt - a.amt; });
+    var vmax = items.length ? items[0].amt : 0;
+    $("vendBars").innerHTML = items.length ? items.map(function (x) {
+      return bar(x.name, x.amt / vmax * 100, fmt(x.amt) + " · " + pct(x.amt / totBuy), x.other ? "oth" : "", x.name + (x.other ? "（其他廠商）" : ""));
+    }).join("") : "<div class='empty-msg'>尚無進貨資料。門市儲存後會即時出現在這裡。</div>";
+
+    /* three periods */
+    var tmax = Math.max(buyP.d10, buyP.d20, buyP.eom);
+    $("trend").innerHTML = "<div class='trend'>" + BUY_PERIODS.map(function (p) {
+      var h = tmax > 0 ? buyP[p] / tmax * 100 : 0;
+      return "<div class='tcol'><div class='tval'>" + fmt(buyP[p]) + "</div><div class='plot'><div class='tbar' style='height:" + h.toFixed(1) + "%'></div></div><div class='tlab'>" + PERIODS[p] + "</div><div class='tsub'>" + (revP[p] > 0 ? "佔業績 " + pct(buyP[p] / revP[p]) : "—") + "</div></div>";
+    }).join("") + "</div>";
+
+    /* cost rate by store */
+    rows.sort(function (a, b) { return b.rate - a.rate; });
+    var rmax = rows.length ? Math.max(rows[0].rate, 0.0001) : 0;
+    $("costTag").textContent = avg === null ? "" : "全店 " + pct(avg) + "，紅色高於全店";
+    $("costBars").innerHTML = rows.length ? rows.map(function (r) {
+      return bar(r.name, Math.max(r.rate, 0) / rmax * 100, pct(r.rate), r.rate > avg ? "" : "lo", r.name + "　用料 " + fmt(r.used) + " ÷ 業績 " + fmt(r.rev));
+    }).join("") : "<div class='empty-msg'>門市完成 10號、20號、月底與月底庫存四筆填報後，這裡會顯示各店成本率排名。</div>";
+
+    /* progress matrix */
+    $("matrix").innerHTML = STORES.map(function (name, i) {
+      var ps = ["d10", "d20", "eom", "inv"], sq = "", miss = [];
+      ps.forEach(function (p) { var on = !!entryOf(p, i + 1); sq += "<b class='" + (on ? "on" : "") + "'></b>"; if (!on) miss.push(PERIODS[p]); });
+      return "<div class='chip' title='" + esc(name + (miss.length ? "　尚缺：" + miss.join("、") : "　已完成")) + "'><span class='nm'>" + esc(name) + "</span><span class='sq'>" + sq + "</span></div>";
+    }).join("");
+
+    $("dashNote").textContent = monthLabel(st.month) + "。資料來自各門市的填報，門市按下儲存後本頁即時更新，不需要重新整理。成本率只計入四筆資料齊全的門市。";
+  }
+
+  function renderAll() { renderStatus(); renderSummary(); renderCost(); renderDash(); }
+
+  function setMode(m) {
+    st.mode = m; $("modePct").setAttribute("aria-pressed", m === "pct"); $("modeAmt").setAttribute("aria-pressed", m === "amt"); renderSummary();
+  }
+  $("modePct").addEventListener("click", function () { setMode("pct"); });
+  $("modeAmt").addEventListener("click", function () { setMode("amt"); });
+
+  /* ---------- CSV ---------- */
+  function saveCsv(filename, rows) {
+    try {
+      var csv = "﻿" + rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
+      var url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })), a = document.createElement("a");
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 800);
+      toast("已匯出");
+    } catch (e) { toast("匯出失敗"); }
+  }
+
+  $("csvBtn").addEventListener("click", function () {
+    var rows;
+    if (isInv()) {
+      rows = [["項次", "店別", "期初庫存", "月底庫存"]];
+      STORES.forEach(function (name, i) { var e = entryOf("inv", i + 1); rows.push(e ? [i + 1, name, openingOf(i + 1), num(e.inventory)] : [i + 1, name]); });
+    } else {
+      var onames = otherNames();
+      rows = [["項次", "店別", "實際業績", "原料總進貨", "總進貨佔比"]
+        .concat(VENDORS.map(function (v) { return v[1] + "金額"; }), onames.map(function (n) { return n + "金額"; }),
+                VENDORS.map(function (v) { return v[1] + "佔比"; }), onames.map(function (n) { return n + "佔比"; }))];
+      STORES.forEach(function (name, i) {
+        var e = entryOf(st.period, i + 1); if (!e) { rows.push([i + 1, name]); return; }
+        var rev = num(e.revenue), tot = totalOf(e), r = [i + 1, name, rev, tot, rev > 0 ? (tot / rev).toFixed(4) : ""];
+        var va = VENDORS.map(function (v) { return num(e.purchases && e.purchases[v[0]]); });
+        var oa = onames.map(function (n) { return otherAmt(e, n); });
+        va.concat(oa).forEach(function (a) { r.push(a); });
+        va.concat(oa).forEach(function (a) { r.push(rev > 0 ? (a / rev).toFixed(4) : ""); });
+        rows.push(r);
+      });
+    }
+    saveCsv("金春喜_" + st.month + "_" + PERIODS[st.period] + ".csv", rows);
+  });
+
+  $("csvCostBtn").addEventListener("click", function () {
+    var rows = [["項次", "店別", "當月實際業績", "期初庫存", "當月進貨", "月底庫存", "實際用料", "實際成本率", "進貨佔比", "資料狀態"]];
+    STORES.forEach(function (name, i) {
+      var s = monthStats(i + 1);
+      if (s.miss.length === 4) { rows.push([i + 1, name, "", "", "", "", "", "", "", "未填報"]); return; }
+      rows.push([i + 1, name, s.rev, s.opening, s.buy, s.closing, s.complete ? s.used : "", s.complete ? s.rate.toFixed(4) : "", s.buyRate === null ? "" : s.buyRate.toFixed(4), s.complete ? "完整" : "尚缺：" + s.miss.join("、")]);
+    });
+    saveCsv("金春喜_" + st.month + "_實際成本率.csv", rows);
+  });
+
+  /* ---------- cloud: Google Apps Script + Google Sheet ---------- */
+  var API_URL = "";  /* ← 部署 Apps Script 後，把「網頁應用程式網址」貼在這兩個引號中間 */
+  var LS = { pin: "jcx_pin", cache: "jcx_cache_v1" };
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function cacheAll() { try { return JSON.parse(lsGet(LS.cache) || "{}"); } catch (e) { return {}; } }
+  function cacheMerge(list) { var c = cacheAll(); list.forEach(function (x) { if (x && x.id) c[x.id] = x; }); lsSet(LS.cache, JSON.stringify(c)); }
+  function localList(months) { var c = cacheAll(); return Object.keys(c).map(function (k) { return c[k]; }).filter(function (x) { return x && months.indexOf(x.month) >= 0; }); }
+
+  var Cloud = {
+    pin: function () { return lsGet(LS.pin) || ""; },
+    list: function (months) {
+      var url = API_URL + "?action=list&months=" + encodeURIComponent(months.join(",")) + "&pin=" + encodeURIComponent(Cloud.pin());
+      return fetch(url).then(function (r) { return r.json(); }).then(function (j) { if (!j.ok) throw new Error(j.error || "fail"); return j.entries || []; });
+    },
+    save: function (entry) {
+      if (!API_URL) { cacheMerge([entry]); return Promise.resolve(); }
+      return fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "save", pin: Cloud.pin(), entry: entry }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (!j.ok) throw new Error(j.error || "fail"); cacheMerge([entry]); });
+    }
+  };
+
+  function setSync(txt, cls) { var el = $("sync"); el.textContent = txt; el.className = "sync " + (cls || ""); }
+  function askPin(msg) {
+    $("gateMsg").textContent = msg || "密碼由總部提供，每台裝置只需輸入一次。";
+    $("gate").hidden = false; $("pinInput").value = ""; setTimeout(function () { $("pinInput").focus(); }, 50);
+  }
+  $("gateForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    lsSet(LS.pin, $("pinInput").value.trim()); $("gate").hidden = true; refresh();
+  });
+  $("sync").addEventListener("click", function () { if (API_URL) askPin(""); });
+
+  function applyEntries(list) {
+    var mp = new Map(), pv = new Map(), pm = prevMonth(st.month);
+    list.forEach(function (x) {
+      if (!x || !x.storeNo || !PERIODS[x.period]) return;
+      if (x.month === st.month) mp.set(key(x.period, x.storeNo), x);
+      else if (x.month === pm && x.period === "inv") pv.set(x.storeNo, num(x.inventory));
+    });
+    st.all = mp; st.prev = pv; renderAll();
+    if (!st.dirty) loadForm();
+  }
+
+  var seq = 0;
+  function refresh() {
+    var my = ++seq, months = [st.month, prevMonth(st.month)];
+    setSync("同步中…", "");
+    var p = API_URL ? Cloud.list(months) : Promise.resolve(localList(months));
+    p.then(function (list) {
+      if (my !== seq) return;
+      if (API_URL) cacheMerge(list);
+      applyEntries(list);
+      setSync(API_URL ? "✓ 已同步" : "僅存在此裝置", API_URL ? "ok" : "warn");
+    }).catch(function (e) {
+      if (my !== seq) return;
+      if (e && e.message === "pin") { setSync("需要密碼", "warn"); askPin(Cloud.pin() ? "密碼錯誤，請重新輸入。" : ""); }
+      else { applyEntries(localList(months)); setSync("離線，顯示上次同步的資料", "warn"); }
+    });
+  }
+  function subscribe() { refresh(); }
+
+  /* ---------- routing ---------- */
+  function route() {
+    var h = location.hash, v = h === "#summary" ? "summary" : (h === "#cost" ? "cost" : (h === "#dash" ? "dash" : "entry"));
+    st.view = v;
+    $("viewEntry").hidden = v !== "entry"; $("viewSummary").hidden = v !== "summary"; $("viewCost").hidden = v !== "cost"; $("viewDash").hidden = v !== "dash";
+    $("periodSeg").hidden = v === "cost" || v === "dash";
+    [["tabEntry", "entry"], ["tabDash", "dash"], ["tabSummary", "summary"], ["tabCost", "cost"]].forEach(function (p) { $(p[0]).setAttribute("aria-current", v === p[1] ? "page" : "false"); });
+  }
+  window.addEventListener("hashchange", route);
+
+  route(); syncPickers(); loadForm(); renderAll();
+
+  if (!API_URL) banner("尚未設定雲端網址：目前資料只存在這台裝置。請先完成 Apps Script 設定，再把網址分享給門市。");
+  if (API_URL && !Cloud.pin()) askPin(""); else refresh();
+  setInterval(function () { if (!document.hidden && API_URL) refresh(); }, 30000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && API_URL && Cloud.pin()) refresh(); });
+})();
+</script>
+</body>
+</html>
+
