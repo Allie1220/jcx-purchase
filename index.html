@@ -11,22 +11,22 @@ body { margin: 0; }
 /* Layout: header holds month + period (10號/20號/月底/月底庫存) shared by entry and summary.
    Entry = form beside a 34-store progress grid; summary and cost = wide sticky-column tables. */
 :root {
-  --bg: #0E1016;
-  --surface: #171A23;
-  --ink: #ECEEF2;
-  --muted: #8D95A6;
-  --line: #2A2F3B;
-  --accent: #E6C35A;
-  --accent-ink: #1A1500;
-  --accent-soft: #2B2612;
-  --ok: #4FD08C;
-  --ok-soft: #12291F;
-  --warn: #E8A64C;
-  --warn-soft: #33260F;
+  --bg: #F4F5F7;
+  --surface: #FFFFFF;
+  --ink: #1B1F27;
+  --muted: #5F6878;
+  --line: #DADDE3;
+  --accent: #B42318;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #FBE9E7;
+  --ok: #1F7A4D;
+  --ok-soft: #E3F3EA;
+  --warn: #9A5B00;
+  --warn-soft: #FDF1DC;
   --f-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
   --f-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  color-scheme: dark;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 body {
@@ -37,7 +37,7 @@ body {
 }
 .wrap { max-width: 1180px; margin: 0 auto; }
 header.top { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; padding-bottom: 14px; }
-h1 { color: var(--accent); font-family: var(--f-display); font-size: 28px; line-height: 1.2; margin: 0; letter-spacing: .02em; text-wrap: balance; }
+h1 { font-family: var(--f-display); font-size: 28px; line-height: 1.2; margin: 0; letter-spacing: .02em; text-wrap: balance; }
 .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .pickers { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .monthbox { display: flex; align-items: center; gap: 8px; }
@@ -50,16 +50,16 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .monthbox select { width: auto; min-width: 150px; }
 nav.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
 nav.tabs a {
-  border-radius: 8px; padding: 10px 16px; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  padding: 10px 16px; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 3px solid transparent; margin-bottom: -1px;
 }
-nav.tabs a[aria-current="page"] { color: var(--accent-ink); background: var(--accent); font-weight: 700; }
+nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
 .banner { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 14px; background: var(--warn-soft); color: var(--warn); }
 .banner[hidden] { display: none; }
 
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; min-height: 42px; background: var(--surface); padding: 0 14px; }
 .seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 700; }
 
 /* entry view */
 .entry { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -124,7 +124,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
 .sync { font-size: 13px; color: var(--muted); cursor: default; }
 .sync.ok { color: var(--ok); }
 .sync.warn { color: var(--warn); cursor: pointer; }
-.gate { position: fixed; inset: 0; background: rgba(0,0,0,.72); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.gate { position: fixed; inset: 0; background: rgba(20,24,32,.45); display: grid; place-items: center; z-index: 50; padding: 16px; }
 .gatebox { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px; width: min(100%, 340px); display: grid; gap: 12px; }
 .gatebox h2 { margin: 0; font-size: 18px; color: var(--accent); }
 .gatebox p { margin: 0; font-size: 13px; color: var(--muted); min-height: 20px; }
