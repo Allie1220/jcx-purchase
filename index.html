@@ -104,6 +104,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* summary + cost views */
 .tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .tools .seg button { min-height: 38px; }
+.thsub { font-weight: 400; margin-left: 2px; }
+.sub { margin-left: 6px; font-size: 12px; color: var(--muted); font-weight: 400; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .btns button { min-height: 38px; }
 .selpanel { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
@@ -112,18 +114,19 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .selgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 2px 10px; }
 .selgrid label { display: flex; gap: 8px; align-items: center; font-size: 14px; min-height: 36px; cursor: pointer; }
 .selgrid input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--accent); }
-.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.tablewrap { overflow: auto; max-height: 78vh; max-height: 78dvh; -webkit-overflow-scrolling: touch; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1100px; font-variant-numeric: tabular-nums; }
 table.narrow { min-width: 620px; }
 th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface); position: sticky; top: 0; letter-spacing: .04em; }
+th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--surface); position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 0 var(--line); letter-spacing: .04em; }
 th.oth { color: var(--warn); }
 td.n { font-family: var(--f-num); }
 td:nth-child(1), th:nth-child(1) { text-align: center; color: var(--muted); width: 48px; }
-td:nth-child(2), th:nth-child(2) { text-align: left; position: sticky; left: 0; background: var(--surface); border-right: 1px solid var(--line); font-weight: 500; }
+td:nth-child(2), th:nth-child(2) { text-align: left; position: sticky; left: 0; z-index: 1; background: var(--surface); border-right: 1px solid var(--line); font-weight: 500; }
 tr.empty td { color: var(--muted); }
 tr.total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--ink); }
 tr.total td:nth-child(2) { background: var(--bg); }
+th:nth-child(2) { z-index: 3; }
 td.na { color: var(--muted); }
 td.rate { font-weight: 700; }
 td.miss { color: var(--warn); text-align: left; font-family: var(--f-body); }
@@ -668,29 +671,40 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
 
   function renderSummary() {
     var t = $("sumTable"), filledN = 0, h;
-    $("modeSeg").hidden = isInv();
+    $("modeSeg").hidden = false;
+    $("modePct").textContent = isInv() ? "庫存金額配比" : "進貨金額配比";
     if (isInv()) {
-      var onI = otherNames(), so = 0, sc = 0, sv = {}, sO = {};
-      h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>期初庫存</th><th class='n'>月底庫存</th><th class='n'>庫存增減</th>";
-      VENDORS.forEach(function (v) { h += "<th class='n'>" + v[1] + "</th>"; sv[v[0]] = 0; });
-      onI.forEach(function (n) { h += "<th class='n oth' title='其他廠商'>" + esc(n) + "</th>"; sO[n] = 0; });
+      var amtI = st.mode === "amt", onI = otherNames(), so = 0, sc = 0, sv = {}, sO = {};
+      var R = { rev: 0, op: 0, cl: 0, v: {}, o: {} };
+      var sub = function (a, rev, show) { return show && rev > 0 && a !== 0 ? "<span class='sub'>" + pct(a / rev) + "</span>" : ""; };
+      var ac = function (a, rev, show) { return "<td class='n" + (show ? "" : " na") + "'>" + (show ? fmt(a) + (amtI ? sub(a, rev, show) : "") : "—") + "</td>"; };
+      h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>月底業績</th><th class='n'>期初庫存</th><th class='n'>月底庫存</th><th class='n'>庫存增減</th>";
+      VENDORS.forEach(function (v) { h += "<th class='n'>" + v[1] + "</th>"; sv[v[0]] = 0; R.v[v[0]] = 0; });
+      onI.forEach(function (n) { h += "<th class='n oth' title='其他廠商'>" + esc(n) + "</th>"; sO[n] = 0; R.o[n] = 0; });
       h += "</tr></thead><tbody>";
       STORES.forEach(function (name, i) {
         if (!selOn(i + 1)) return;
-        var e = entryOf("inv", i + 1), op = e ? openingOf(i + 1) : 0, cl = e ? invTotal(e) : 0;
-        if (e) { filledN++; so += op; sc += cl; }
-        h += "<tr" + (e ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(op, !!e) + amtCell(cl, !!e) + amtCell(cl - op, !!e);
-        VENDORS.forEach(function (v) { var a = e && e.purchases ? num(e.purchases[v[0]]) : 0; sv[v[0]] += a; h += amtCell(a, !!e); });
-        onI.forEach(function (n) { var a = otherAmt(e, n); sO[n] += a; h += amtCell(a, !!e); });
+        var e = entryOf("inv", i + 1), ee = entryOf("eom", i + 1), rev = ee ? num(ee.revenue) : 0, op = e ? openingOf(i + 1) : 0, cl = e ? invTotal(e) : 0;
+        if (e) { filledN++; so += op; sc += cl; if (rev > 0) { R.rev += rev; R.op += op; R.cl += cl; } }
+        h += "<tr" + (e ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(rev, rev > 0) + ac(op, rev, !!e) + ac(cl, rev, !!e) + ac(cl - op, rev, !!e);
+        VENDORS.forEach(function (v) {
+          var a = e && e.purchases ? num(e.purchases[v[0]]) : 0; sv[v[0]] += a; if (e && rev > 0) R.v[v[0]] += a;
+          h += amtI ? ac(a, rev, !!e) : cell(cl > 0 ? a / cl : null, false, !!e);
+        });
+        onI.forEach(function (n) {
+          var a = otherAmt(e, n); sO[n] += a; if (e && rev > 0) R.o[n] += a;
+          h += amtI ? ac(a, rev, !!e) : cell(cl > 0 ? a / cl : null, false, !!e);
+        });
         h += "</tr>";
       });
-      h += "<tr class='total'><td></td><td>" + selLabel() + "</td><td class='n'>" + fmt(so) + "</td><td class='n'>" + fmt(sc) + "</td><td class='n'>" + fmt(sc - so) + "</td>";
-      VENDORS.forEach(function (v) { h += "<td class='n'>" + fmt(sv[v[0]]) + "</td>"; });
-      onI.forEach(function (n) { h += "<td class='n'>" + fmt(sO[n]) + "</td>"; });
+      var tc = function (a, r) { return "<td class='n'>" + fmt(a) + (amtI && R.rev > 0 && a !== 0 ? "<span class='sub'>" + pct(r / R.rev) + "</span>" : "") + "</td>"; };
+      h += "<tr class='total'><td></td><td>" + selLabel() + "</td><td class='n'>" + fmt(R.rev) + "</td>" + tc(so, R.op) + tc(sc, R.cl) + tc(sc - so, R.cl - R.op);
+      VENDORS.forEach(function (v) { h += amtI ? tc(sv[v[0]], R.v[v[0]]) : cell(sc > 0 ? sv[v[0]] / sc : null, false, true); });
+      onI.forEach(function (n) { h += amtI ? tc(sO[n], R.o[n]) : cell(sc > 0 ? sO[n] / sc : null, false, true); });
       h += "</tr></tbody>";
       t.className = "";
       t.innerHTML = h;
-      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / " + st.sel.size + " 間（已選門市），金額為各廠商月底盤點的庫存。期初庫存預設帶入上月月底庫存。";
+      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / " + st.sel.size + " 間（已選門市）。「庫存金額配比」＝ 廠商庫存 ÷ 該店月底庫存總額；「金額」模式每個數字右側的灰色百分比 ＝ 該金額 ÷ 該店月底業績。月底業績取自「月底」期別。期初庫存預設帶入上月月底庫存。合計列的業績占比只計入有月底業績的門市。";
       return;
     }
     t.className = "";
@@ -756,24 +770,26 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
 
   /* ---------- actual cost rate (whole month) ---------- */
   function renderCost() {
-    var h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>當月實際業績</th><th class='n'>期初庫存</th><th class='n'>當月進貨</th><th class='n'>月底庫存</th><th class='n'>實際用料</th><th class='n'>實際成本率</th><th class='n'>進貨佔比</th><th style='text-align:left'>資料狀態</th></tr></thead><tbody>";
+    var ap = function (a, rev, show) {
+      if (!show) return "<td class='n na'>—</td>";
+      return "<td class='n'>" + fmt(a) + (rev > 0 && a !== 0 ? "<span class='sub'>" + pct(a / rev) + "</span>" : "") + "</td>";
+    };
+    var h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>實際業績</th><th class='n'>期初庫存<small class='thsub'>（佔業績）</small></th><th class='n'>當月進貨<small class='thsub'>（佔業績）</small></th><th class='n'>月底庫存<small class='thsub'>（佔業績）</small></th><th class='n'>實際用量</th><th class='n'>實際成本率</th><th style='text-align:left'>資料狀態</th></tr></thead><tbody>";
     var t = { rev: 0, op: 0, buy: 0, cl: 0, used: 0, n: 0 };
     STORES.forEach(function (name, i) {
       if (!selOn(i + 1)) return;
       var s = monthStats(i + 1), none = !s.any;
       h += "<tr" + (none ? " class='empty'" : "") + "><td>" + (i + 1) + "</td><td>" + name + "</td>";
-      h += amtCell(s.rev, !none) + amtCell(s.opening, s.hasInv) + amtCell(s.buy, !none) + amtCell(s.closing, s.hasInv);
-      h += amtCell(s.used, s.complete);
+      h += amtCell(s.rev, !none) + ap(s.opening, s.rev, s.hasInv) + ap(s.buy, s.rev, !none) + ap(s.closing, s.rev, s.hasInv) + amtCell(s.used, s.complete);
       h += "<td class='n rate" + (s.complete ? "" : " na") + "'>" + (s.complete ? pct(s.rate) : "—") + "</td>";
-      h += "<td class='n" + (s.buyRate === null || none ? " na" : "") + "'>" + (s.buyRate === null || none ? "—" : pct(s.buyRate)) + "</td>";
       h += s.complete ? "<td class='okc'>完整</td>" : "<td class='miss'>" + (none ? "未填報" : "尚缺：" + s.miss.join("、")) + "</td>";
       h += "</tr>";
       if (s.complete) { t.n++; t.rev += s.rev; t.op += s.opening; t.buy += s.buy; t.cl += s.closing; t.used += s.used; }
     });
-    h += "<tr class='total'><td></td><td>合計（已選門市中資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td><td class='n'>" + fmt(t.op) + "</td><td class='n'>" + fmt(t.buy) + "</td><td class='n'>" + fmt(t.cl) + "</td><td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td class='n'>" + (t.rev > 0 ? pct(t.buy / t.rev) : "—") + "</td><td></td></tr></tbody>";
+    h += "<tr class='total'><td></td><td>合計（已選門市中資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td>" + ap(t.op, t.rev, true) + ap(t.buy, t.rev, true) + ap(t.cl, t.rev, true) + "<td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td></td></tr></tbody>";
     $("costTable").innerHTML = h;
     $("costTitle").textContent = monthLabel(st.month) + "　實際成本率";
-    $("costNote").textContent = "10號、20號、月底填的是當月累計金額，所以當月進貨與當月實際業績取「月底」那一筆，不用三期加總。實際用料 ＝ 期初庫存 ＋ 當月進貨（月底）－ 月底庫存。實際成本率 ＝ 實際用料 ÷ 當月實際業績（月底）。月底與月底庫存兩筆都填報的門市才會計算成本率，合計也只包含這些門市。進貨佔比是進貨金額 ÷ 業績，沒有扣庫存，僅供對照。";
+    $("costNote").textContent = "10號、20號、月底填的是當月累計金額，所以當月進貨與實際業績取「月底」那一筆，不用三期加總。實際用量 ＝ 期初庫存 ＋ 當月進貨（月底）－ 月底庫存。期初庫存、當月進貨、月底庫存右側的灰色百分比 ＝ 該金額 ÷ 實際業績；實際成本率 ＝ 實際用量 ÷ 實際業績。月底與月底庫存兩筆都填報的門市才會計算實際用量與成本率，合計也只包含這些門市。";
   }
 
   /* ---------- dashboard ---------- */
@@ -908,12 +924,13 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   });
 
   $("csvCostBtn").addEventListener("click", function () {
-    var rows = [["項次", "店別", "當月實際業績", "期初庫存", "當月進貨", "月底庫存", "實際用料", "實際成本率", "進貨佔比", "資料狀態"]];
+    var rows = [["項次", "店別", "實際業績", "期初庫存", "期初庫存佔業績", "當月進貨", "當月進貨佔業績", "月底庫存", "月底庫存佔業績", "實際用量", "實際成本率", "資料狀態"]];
+    var f = function (a, rev) { return rev > 0 ? (a / rev).toFixed(4) : ""; };
     STORES.forEach(function (name, i) {
       if (!selOn(i + 1)) return;
       var s = monthStats(i + 1);
-      if (!s.any) { rows.push([i + 1, name, "", "", "", "", "", "", "", "未填報"]); return; }
-      rows.push([i + 1, name, s.rev, s.opening, s.buy, s.closing, s.complete ? s.used : "", s.complete ? s.rate.toFixed(4) : "", s.buyRate === null ? "" : s.buyRate.toFixed(4), s.complete ? "完整" : "尚缺：" + s.miss.join("、")]);
+      if (!s.any) { rows.push([i + 1, name, "", "", "", "", "", "", "", "", "", "未填報"]); return; }
+      rows.push([i + 1, name, s.rev, s.hasInv ? s.opening : "", s.hasInv ? f(s.opening, s.rev) : "", s.buy, f(s.buy, s.rev), s.hasInv ? s.closing : "", s.hasInv ? f(s.closing, s.rev) : "", s.complete ? s.used : "", s.complete ? s.rate.toFixed(4) : "", s.complete ? "完整" : "尚缺：" + s.miss.join("、")]);
     });
     saveCsv("金春喜_" + st.month + "_實際成本率.csv", rows);
   });
