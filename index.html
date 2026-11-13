@@ -202,6 +202,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     <a href="#entry" id="tabEntry">門市填報</a>
     <a href="#dash" id="tabDash">儀表板</a>
     <a href="#summary" id="tabSummary">進貨比例總表</a>
+    <a href="#salary" id="tabSalary">薪資比例總表</a>
     <a href="#cost" id="tabCost">實際成本率</a>
   </nav>
 
@@ -235,6 +236,29 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
           <div><div class="k" id="totLab">原料總進貨</div><div class="v" id="totalAmt">0</div></div>
           <div id="pctBox"><div class="k">佔實際業績</div><div class="v" id="totalPct">—</div></div>
         </div>
+      </div>
+
+      <div id="salBlock">
+        <h2>薪資 <small>內場薪資 ＋ 外場薪資 ＝ 總薪資</small></h2>
+        <div class="row2">
+          <div class="field">
+            <label class="lab" for="salIn">內場薪資</label>
+            <div class="money"><span>NT$</span><input id="salIn" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
+            <div class="hint" id="salInHint"></div>
+          </div>
+          <div class="field">
+            <label class="lab" for="salOut">外場薪資</label>
+            <div class="money"><span>NT$</span><input id="salOut" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
+            <div class="hint" id="salOutHint"></div>
+          </div>
+        </div>
+        <div class="totalbar">
+          <div><div class="k">總薪資</div><div class="v" id="salTot">0</div></div>
+          <div><div class="k">內場比例</div><div class="v" id="salInPct">—</div></div>
+          <div><div class="k">外場比例</div><div class="v" id="salOutPct">—</div></div>
+          <div><div class="k">總薪資比例</div><div class="v" id="salTotPct">—</div></div>
+        </div>
+        <div class="hint">薪資比例 ＝ 薪資 ÷ 該期累計實際業績，薪資請填當月累計金額。</div>
       </div>
 
       <div id="invBlock" hidden>
@@ -290,6 +314,16 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     <div class="selpanel" id="selPanelS" hidden></div>
     <div class="tablewrap"><table id="sumTable"></table></div>
     <div class="note" id="sumNote"></div>
+  </section>
+
+  <section id="viewSalary" hidden>
+    <div class="tools">
+      <div class="sub" id="salTitle"></div>
+      <div class="btns"><button type="button" class="selBtn" id="selBtnL" aria-expanded="false"></button><button type="button" id="csvSalBtn">匯出 CSV</button></div>
+    </div>
+    <div class="selpanel" id="selPanelL" hidden></div>
+    <div class="tablewrap"><table id="salTable"></table></div>
+    <div class="note" id="salNote"></div>
   </section>
 
   <section id="viewCost" hidden>
@@ -429,6 +463,11 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       var a = num(r.a.value); total += a;
       r.h.textContent = (rev > 0 && a > 0) ? "佔業績 " + pct(a / rev) : "";
     });
+    var sIn = num($("salIn").value), sOut = num($("salOut").value), sTot = sIn + sOut;
+    $("salTot").textContent = fmt(sTot);
+    $("salInPct").textContent = (rev > 0 && sIn > 0) ? pct(sIn / rev) : "—";
+    $("salOutPct").textContent = (rev > 0 && sOut > 0) ? pct(sOut / rev) : "—";
+    $("salTotPct").textContent = (rev > 0 && sTot > 0) ? pct(sTot / rev) : "—";
     $("totalAmt").textContent = fmt(total);
     $("totalPct").textContent = rev > 0 ? pct(total / rev) : "—";
     if (isInv()) {
@@ -463,6 +502,9 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     $("buyTitle").textContent = inv ? "各廠商月底庫存金額" : "各廠商進貨金額";
     $("totLab").textContent = inv ? "月底庫存合計" : "原料總進貨";
     $("revenue").value = (!inv && e && e.revenue) ? e.revenue : "";
+    $("salBlock").hidden = inv;
+    $("salIn").value = (!inv && e && e.salaryIn) ? e.salaryIn : "";
+    $("salOut").value = (!inv && e && e.salaryOut) ? e.salaryOut : "";
     vInputs().forEach(function (inp) { var a = e && e.purchases ? e.purchases[inp.dataset.k] : 0; inp.value = a ? a : ""; });
     var os = (e && e.others) || [];
     oRows().forEach(function (r, i) { var o = os[i]; r.n.value = o && o.name ? o.name : ""; r.a.value = o && o.amount ? o.amount : ""; });
@@ -482,7 +524,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   }
 
   function markDirty() { if (!st.dirty) { st.dirty = true; setState("尚未儲存", "dirty"); } calc(); }
-  ["revenue", "opening"].forEach(function (id) { $(id).addEventListener("input", markDirty); });
+  ["revenue", "opening", "salIn", "salOut"].forEach(function (id) { $(id).addEventListener("input", markDirty); });
   vWrap.addEventListener("input", markDirty);
   oWrap.addEventListener("input", markDirty);
 
@@ -530,7 +572,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     if (isInv()) {
       data = { month: st.month, period: "inv", storeNo: st.storeNo, store: STORES[st.storeNo - 1], opening: num($("opening").value), inventory: tot, purchases: pur, others: oth, updatedAt: new Date().toISOString() };
     } else {
-      data = { month: st.month, period: st.period, storeNo: st.storeNo, store: STORES[st.storeNo - 1], revenue: num($("revenue").value), purchases: pur, others: oth, updatedAt: new Date().toISOString() };
+      data = { month: st.month, period: st.period, storeNo: st.storeNo, store: STORES[st.storeNo - 1], revenue: num($("revenue").value), salaryIn: num($("salIn").value), salaryOut: num($("salOut").value), purchases: pur, others: oth, updatedAt: new Date().toISOString() };
     }
     data.id = docId(st.month, st.storeNo, st.period);
     btn.disabled = true; setState("儲存中…", "");
@@ -603,13 +645,13 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     $(pid).innerHTML = h + "</div>";
   }
   function syncSelUi() {
-    ["selBtnS", "selBtnC"].forEach(function (id) { $(id).textContent = "選擇門市（" + st.sel.size + "/" + STORES.length + "）"; });
-    ["selPanelS", "selPanelC"].forEach(function (pid) {
+    ["selBtnS", "selBtnC", "selBtnL"].forEach(function (id) { $(id).textContent = "選擇門市（" + st.sel.size + "/" + STORES.length + "）"; });
+    ["selPanelS", "selPanelC", "selPanelL"].forEach(function (pid) {
       Array.prototype.forEach.call($(pid).querySelectorAll("input[data-no]"), function (c) { c.checked = st.sel.has(+c.dataset.no); });
     });
   }
-  function selChanged() { saveSel(); syncSelUi(); renderSummary(); renderCost(); }
-  [["selBtnS", "selPanelS"], ["selBtnC", "selPanelC"]].forEach(function (pr) {
+  function selChanged() { saveSel(); syncSelUi(); renderSummary(); renderCost(); renderSalary(); }
+  [["selBtnS", "selPanelS"], ["selBtnC", "selPanelC"], ["selBtnL", "selPanelL"]].forEach(function (pr) {
     buildSel(pr[1]);
     $(pr[0]).addEventListener("click", function () { var p = $(pr[1]); p.hidden = !p.hidden; this.setAttribute("aria-expanded", String(!p.hidden)); });
     $(pr[1]).addEventListener("change", function (ev) {
@@ -684,6 +726,32 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     h += "</tr></tbody>";
     t.innerHTML = h;
     $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / " + st.sel.size + " 間（已選門市）。各期金額都是當月累計。廠商欄位的比例 ＝ 廠商進貨金額 ÷ 該店該期原料總進貨，各廠商加起來為 100%。「總進貨佔業績」＝ 原料總進貨 ÷ 實際業績。尚未填報、進貨為 0 或業績為 0 的欄位顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
+  }
+
+  /* ---------- salary ratio (selected period) ---------- */
+  function renderSalary() {
+    var t = $("salTable");
+    $("salTitle").textContent = monthLabel(st.month) + "　" + PERIODS[st.period] + "　薪資比例";
+    if (isInv()) {
+      t.innerHTML = "";
+      $("salNote").textContent = "「月底庫存」沒有業績，請在上方改選 10號、20號或月底，查看該期的薪資比例。";
+      return;
+    }
+    var h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>實際業績</th><th class='n'>內場薪資</th><th class='n'>外場薪資</th><th class='n'>總薪資</th><th class='n'>內場比例</th><th class='n'>外場比例</th><th class='n'>總薪資比例</th></tr></thead><tbody>";
+    var T = { rev: 0, si: 0, so: 0, n: 0 }, filledN = 0;
+    STORES.forEach(function (name, i) {
+      if (!selOn(i + 1)) return;
+      var e = entryOf(st.period, i + 1), rev = e ? num(e.revenue) : 0, si = e ? num(e.salaryIn) : 0, so = e ? num(e.salaryOut) : 0;
+      var has = !!e && (si > 0 || so > 0);
+      if (has) filledN++;
+      h += "<tr" + (has ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(rev, !!e) + amtCell(si, has) + amtCell(so, has) + amtCell(si + so, has);
+      h += cell(rev > 0 ? si / rev : null, false, has) + cell(rev > 0 ? so / rev : null, false, has) + cell(rev > 0 ? (si + so) / rev : null, false, has) + "</tr>";
+      if (has && rev > 0) { T.n++; T.rev += rev; T.si += si; T.so += so; }
+    });
+    h += "<tr class='total'><td></td><td>" + selLabel() + "（已填薪資 " + T.n + " 間）</td><td class='n'>" + fmt(T.rev) + "</td><td class='n'>" + fmt(T.si) + "</td><td class='n'>" + fmt(T.so) + "</td><td class='n'>" + fmt(T.si + T.so) + "</td>";
+    h += cell(T.rev > 0 ? T.si / T.rev : null, false, true) + cell(T.rev > 0 ? T.so / T.rev : null, false, true) + cell(T.rev > 0 ? (T.si + T.so) / T.rev : null, false, true) + "</tr></tbody>";
+    t.innerHTML = h;
+    $("salNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填薪資 " + filledN + " / " + st.sel.size + " 間（已選門市）。薪資與業績都是當月累計金額；總薪資 ＝ 內場薪資 ＋ 外場薪資；比例 ＝ 薪資 ÷ 實際業績。合計只包含已填薪資且業績大於 0 的門市。";
   }
 
   /* ---------- actual cost rate (whole month) ---------- */
@@ -776,7 +844,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     $("dashNote").textContent = monthLabel(st.month) + "。資料來自各門市的填報，門市按下儲存後本頁即時更新，不需要重新整理。成本率只計入月底與月底庫存都已填報的門市。";
   }
 
-  function renderAll() { renderStatus(); renderSummary(); renderCost(); renderDash(); }
+  function renderAll() { renderStatus(); renderSummary(); renderSalary(); renderCost(); renderDash(); }
 
   function setMode(m) {
     st.mode = m; $("modePct").setAttribute("aria-pressed", m === "pct"); $("modeAmt").setAttribute("aria-pressed", m === "amt"); renderSummary();
@@ -825,6 +893,18 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       });
     }
     saveCsv("金春喜_" + st.month + "_" + PERIODS[st.period] + ".csv", rows);
+  });
+
+  $("csvSalBtn").addEventListener("click", function () {
+    if (isInv()) { toast("請先改選 10號、20號或月底"); return; }
+    var rows = [["項次", "店別", "實際業績", "內場薪資", "外場薪資", "總薪資", "內場比例", "外場比例", "總薪資比例"]];
+    STORES.forEach(function (name, i) {
+      if (!selOn(i + 1)) return;
+      var e = entryOf(st.period, i + 1); if (!e) { rows.push([i + 1, name]); return; }
+      var rev = num(e.revenue), si = num(e.salaryIn), so = num(e.salaryOut), f = function (a) { return rev > 0 && a > 0 ? (a / rev).toFixed(4) : ""; };
+      rows.push([i + 1, name, rev, si, so, si + so, f(si), f(so), f(si + so)]);
+    });
+    saveCsv("金春喜_" + st.month + "_" + PERIODS[st.period] + "_薪資比例.csv", rows);
   });
 
   $("csvCostBtn").addEventListener("click", function () {
@@ -903,11 +983,11 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
 
   /* ---------- routing ---------- */
   function route() {
-    var h = location.hash, v = h === "#summary" ? "summary" : (h === "#cost" ? "cost" : (h === "#dash" ? "dash" : "entry"));
+    var h = location.hash, v = h === "#summary" ? "summary" : (h === "#salary" ? "salary" : h === "#cost" ? "cost" : (h === "#dash" ? "dash" : "entry"));
     st.view = v;
-    $("viewEntry").hidden = v !== "entry"; $("viewSummary").hidden = v !== "summary"; $("viewCost").hidden = v !== "cost"; $("viewDash").hidden = v !== "dash";
+    $("viewEntry").hidden = v !== "entry"; $("viewSummary").hidden = v !== "summary"; $("viewSalary").hidden = v !== "salary"; $("viewCost").hidden = v !== "cost"; $("viewDash").hidden = v !== "dash";
     $("periodSeg").hidden = v === "cost" || v === "dash";
-    [["tabEntry", "entry"], ["tabDash", "dash"], ["tabSummary", "summary"], ["tabCost", "cost"]].forEach(function (p) { $(p[0]).setAttribute("aria-current", v === p[1] ? "page" : "false"); });
+    [["tabEntry", "entry"], ["tabDash", "dash"], ["tabSummary", "summary"], ["tabSalary", "salary"], ["tabCost", "cost"]].forEach(function (p) { $(p[0]).setAttribute("aria-current", v === p[1] ? "page" : "false"); });
   }
   window.addEventListener("hashchange", route);
 
