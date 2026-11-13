@@ -122,7 +122,7 @@ th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--s
 th.oth { color: var(--warn); }
 td.n { font-family: var(--f-num); }
 td:nth-child(1), th:nth-child(1) { text-align: center; color: var(--muted); width: 48px; }
-td:nth-child(2), th:nth-child(2) { text-align: left; position: sticky; left: 0; z-index: 1; background: var(--surface); border-right: 1px solid var(--line); font-weight: 500; }
+td:nth-child(2), th:nth-child(2) { text-align: left; position: sticky; left: 0; z-index: 1; width: 1%; min-width: 7em; background: var(--surface); border-right: 1px solid var(--line); font-weight: 500; }
 tr.empty td { color: var(--muted); }
 tr.total td { font-weight: 700; background: var(--bg); border-top: 2px solid var(--ink); }
 tr.total td:nth-child(2) { background: var(--bg); }
@@ -762,7 +762,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       h += cell(rev > 0 ? si / rev : null, false, has) + cell(rev > 0 ? so / rev : null, false, has) + cell(rev > 0 ? (si + so) / rev : null, false, has) + "</tr>";
       if (has && rev > 0) { T.n++; T.rev += rev; T.si += si; T.so += so; }
     });
-    h += "<tr class='total'><td></td><td>" + selLabel() + "（已填薪資 " + T.n + " 間）</td><td class='n'>" + fmt(T.rev) + "</td><td class='n'>" + fmt(T.si) + "</td><td class='n'>" + fmt(T.so) + "</td><td class='n'>" + fmt(T.si + T.so) + "</td>";
+    h += "<tr class='total'><td></td><td>" + selLabel() + "<br><small class='thsub'>已填薪資 " + T.n + " 間</small></td><td class='n'>" + fmt(T.rev) + "</td><td class='n'>" + fmt(T.si) + "</td><td class='n'>" + fmt(T.so) + "</td><td class='n'>" + fmt(T.si + T.so) + "</td>";
     h += cell(T.rev > 0 ? T.si / T.rev : null, false, true) + cell(T.rev > 0 ? T.so / T.rev : null, false, true) + cell(T.rev > 0 ? (T.si + T.so) / T.rev : null, false, true) + "</tr></tbody>";
     t.innerHTML = h;
     $("salNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填薪資 " + filledN + " / " + st.sel.size + " 間（已選門市）。薪資與業績都是當月累計金額；總薪資 ＝ 內場薪資 ＋ 外場薪資；比例 ＝ 薪資 ÷ 實際業績。合計只包含已填薪資且業績大於 0 的門市。";
@@ -786,7 +786,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       h += "</tr>";
       if (s.complete) { t.n++; t.rev += s.rev; t.op += s.opening; t.buy += s.buy; t.cl += s.closing; t.used += s.used; }
     });
-    h += "<tr class='total'><td></td><td>合計（已選門市中資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td>" + ap(t.op, t.rev, true) + ap(t.buy, t.rev, true) + ap(t.cl, t.rev, true) + "<td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td></td></tr></tbody>";
+    h += "<tr class='total'><td></td><td>合計<br><small class='thsub'>資料完整 " + t.n + " 間</small></td><td class='n'>" + fmt(t.rev) + "</td>" + ap(t.op, t.rev, true) + ap(t.buy, t.rev, true) + ap(t.cl, t.rev, true) + "<td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td></td></tr></tbody>";
     $("costTable").innerHTML = h;
     $("costTitle").textContent = monthLabel(st.month) + "　實際成本率";
     $("costNote").textContent = "10號、20號、月底填的是當月累計金額，所以當月進貨與實際業績取「月底」那一筆，不用三期加總。實際用量 ＝ 期初庫存 ＋ 當月進貨（月底）－ 月底庫存。期初庫存、當月進貨、月底庫存右側的灰色百分比 ＝ 該金額 ÷ 實際業績；實際成本率 ＝ 實際用量 ÷ 實際業績。月底與月底庫存兩筆都填報的門市才會計算實際用量與成本率，合計也只包含這些門市。";
