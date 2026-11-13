@@ -104,6 +104,14 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* summary + cost views */
 .tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .tools .seg button { min-height: 38px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btns button { min-height: 38px; }
+.selpanel { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.selacts { display: flex; gap: 8px; margin-bottom: 8px; }
+.selacts button { min-height: 34px; padding: 0 14px; }
+.selgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 2px 10px; }
+.selgrid label { display: flex; gap: 8px; align-items: center; font-size: 14px; min-height: 36px; cursor: pointer; }
+.selgrid input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--accent); }
 .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1100px; font-variant-numeric: tabular-nums; }
 table.narrow { min-width: 620px; }
@@ -277,8 +285,9 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
         <button type="button" id="modePct" aria-pressed="true">進貨金額配比</button>
         <button type="button" id="modeAmt" aria-pressed="false">金額</button>
       </div>
-      <button type="button" id="csvBtn">匯出 CSV</button>
+      <div class="btns"><button type="button" class="selBtn" id="selBtnS" aria-expanded="false"></button><button type="button" id="csvBtn">匯出 CSV</button></div>
     </div>
+    <div class="selpanel" id="selPanelS" hidden></div>
     <div class="tablewrap"><table id="sumTable"></table></div>
     <div class="note" id="sumNote"></div>
   </section>
@@ -286,8 +295,9 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   <section id="viewCost" hidden>
     <div class="tools">
       <div class="sub" id="costTitle"></div>
-      <button type="button" id="csvCostBtn">匯出 CSV</button>
+      <div class="btns"><button type="button" class="selBtn" id="selBtnC" aria-expanded="false"></button><button type="button" id="csvCostBtn">匯出 CSV</button></div>
     </div>
+    <div class="selpanel" id="selPanelC" hidden></div>
     <div class="tablewrap"><table id="costTable"></table></div>
     <div class="note" id="costNote"></div>
   </section>
@@ -324,7 +334,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   var st = {
     month: now.getFullYear() + "-" + pad(now.getMonth() + 1),
     period: day <= 14 ? "d10" : (day <= 24 ? "d20" : "eom"),
-    storeNo: 1, all: new Map(), prev: new Map(), dirty: false, pending: null,
+    storeNo: 1, all: new Map(), prev: new Map(), prevE: new Map(), dirty: false, pending: null,
     db: null, canWrite: true, unsubs: [], mode: "pct", view: "entry"
   };
   var key = function (p, no) { return p + "_" + no; };
@@ -401,6 +411,14 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   function vInputs() { return Array.prototype.slice.call(vWrap.querySelectorAll("input")); }
   function oRows() { var a = []; for (var i = 0; i < NOTHER; i++) a.push({ n: $("on_" + i), a: $("oa_" + i), h: $("oh_" + i) }); return a; }
 
+  /* per-vendor actual usage = last month's closing + this month's purchases (月底) - this closing */
+  function useHint(el, op, buy, inv, hasEom) {
+    if (!hasEom) { el.textContent = "尚未填「月底」進貨，無法算實際用量"; el.classList.remove("warn"); return; }
+    var used = op + buy - inv;
+    if (!op && !buy && !inv) { el.textContent = ""; el.classList.remove("warn"); return; }
+    el.textContent = "實際用量 " + fmt(used) + "（期初 " + fmt(op) + " ＋ 進貨 " + fmt(buy) + " － 庫存 " + fmt(inv) + "）";
+    el.classList.toggle("warn", used < 0);
+  }
   function calc() {
     var rev = num($("revenue").value), total = 0;
     vInputs().forEach(function (inp) {
@@ -414,6 +432,16 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     $("totalAmt").textContent = fmt(total);
     $("totalPct").textContent = rev > 0 ? pct(total / rev) : "—";
     if (isInv()) {
+      var pe = st.prevE && st.prevE.get(st.storeNo), eomE = entryOf("eom", st.storeNo);
+      vInputs().forEach(function (inp) {
+        var k = inp.dataset.k;
+        useHint($("h_" + k), pe && pe.purchases ? num(pe.purchases[k]) : 0, eomE && eomE.purchases ? num(eomE.purchases[k]) : 0, num(inp.value), !!eomE);
+      });
+      oRows().forEach(function (r) {
+        var nm = (r.n.value || "").trim();
+        if (!nm) { r.h.textContent = ""; r.h.classList.remove("warn"); return; }
+        useHint(r.h, otherAmt(pe, nm), otherAmt(eomE, nm), num(r.a.value), !!eomE);
+      });
       var eom = entryOf("eom", st.storeNo), op = num($("opening").value);
       if (eom && num(eom.revenue) > 0) {
         var buy = totalOf(eom), er = num(eom.revenue), used = op + buy - total;
@@ -468,7 +496,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   function apply(c) {
     if (c.type === "store") st.storeNo = c.v;
     else if (c.type === "period") st.period = c.v;
-    else if (c.type === "month") { st.month = c.v; st.all = new Map(); st.prev = new Map(); subscribe(); }
+    else if (c.type === "month") { st.month = c.v; st.all = new Map(); st.prev = new Map(); st.prevE = new Map(); subscribe(); }
     syncPickers(); loadForm(); renderAll();
   }
   function syncPickers() {
@@ -558,6 +586,44 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   }
   function amtCell(v, show) { return "<td class='n" + (show ? "" : " na") + "'>" + (show ? fmt(v) : "—") + "</td>"; }
 
+  /* ---------- store selection (summary + cost tables) ---------- */
+  var SELK = "jcx_sel";
+  function allSel() { var s = new Set(); STORES.forEach(function (_, i) { s.add(i + 1); }); return s; }
+  function loadSel() {
+    try { var a = JSON.parse(localStorage.getItem(SELK) || "null"); if (Array.isArray(a)) { var s = new Set(); a.forEach(function (n) { if (n >= 1 && n <= STORES.length) s.add(n); }); return s; } } catch (e) {}
+    return allSel();
+  }
+  function saveSel() { try { localStorage.setItem(SELK, JSON.stringify(Array.from(st.sel))); } catch (e) {} }
+  st.sel = loadSel();
+  var selOn = function (no) { return st.sel.has(no); };
+  function selLabel() { return st.sel.size === STORES.length ? "全店合計" : "已選 " + st.sel.size + " 間合計"; }
+  function buildSel(pid) {
+    var h = "<div class='selacts'><button type='button' data-a='all'>全選</button><button type='button' data-a='none'>全不選</button></div><div class='selgrid'>";
+    STORES.forEach(function (n, i) { h += "<label><input type='checkbox' data-no='" + (i + 1) + "'" + (st.sel.has(i + 1) ? " checked" : "") + ">" + (i + 1) + " " + esc(n) + "</label>"; });
+    $(pid).innerHTML = h + "</div>";
+  }
+  function syncSelUi() {
+    ["selBtnS", "selBtnC"].forEach(function (id) { $(id).textContent = "選擇門市（" + st.sel.size + "/" + STORES.length + "）"; });
+    ["selPanelS", "selPanelC"].forEach(function (pid) {
+      Array.prototype.forEach.call($(pid).querySelectorAll("input[data-no]"), function (c) { c.checked = st.sel.has(+c.dataset.no); });
+    });
+  }
+  function selChanged() { saveSel(); syncSelUi(); renderSummary(); renderCost(); }
+  [["selBtnS", "selPanelS"], ["selBtnC", "selPanelC"]].forEach(function (pr) {
+    buildSel(pr[1]);
+    $(pr[0]).addEventListener("click", function () { var p = $(pr[1]); p.hidden = !p.hidden; this.setAttribute("aria-expanded", String(!p.hidden)); });
+    $(pr[1]).addEventListener("change", function (ev) {
+      var c = ev.target; if (!c.dataset || !c.dataset.no) return;
+      if (c.checked) st.sel.add(+c.dataset.no); else st.sel.delete(+c.dataset.no);
+      selChanged();
+    });
+    $(pr[1]).addEventListener("click", function (ev) {
+      var a = ev.target.dataset && ev.target.dataset.a; if (!a) return;
+      st.sel = a === "all" ? allSel() : new Set(); selChanged();
+    });
+  });
+  syncSelUi();
+
   function renderSummary() {
     var t = $("sumTable"), filledN = 0, h;
     $("modeSeg").hidden = isInv();
@@ -568,6 +634,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       onI.forEach(function (n) { h += "<th class='n oth' title='其他廠商'>" + esc(n) + "</th>"; sO[n] = 0; });
       h += "</tr></thead><tbody>";
       STORES.forEach(function (name, i) {
+        if (!selOn(i + 1)) return;
         var e = entryOf("inv", i + 1), op = e ? openingOf(i + 1) : 0, cl = e ? invTotal(e) : 0;
         if (e) { filledN++; so += op; sc += cl; }
         h += "<tr" + (e ? "" : " class='empty'") + "><td>" + (i + 1) + "</td><td>" + name + "</td>" + amtCell(op, !!e) + amtCell(cl, !!e) + amtCell(cl - op, !!e);
@@ -575,13 +642,13 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
         onI.forEach(function (n) { var a = otherAmt(e, n); sO[n] += a; h += amtCell(a, !!e); });
         h += "</tr>";
       });
-      h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(so) + "</td><td class='n'>" + fmt(sc) + "</td><td class='n'>" + fmt(sc - so) + "</td>";
+      h += "<tr class='total'><td></td><td>" + selLabel() + "</td><td class='n'>" + fmt(so) + "</td><td class='n'>" + fmt(sc) + "</td><td class='n'>" + fmt(sc - so) + "</td>";
       VENDORS.forEach(function (v) { h += "<td class='n'>" + fmt(sv[v[0]]) + "</td>"; });
       onI.forEach(function (n) { h += "<td class='n'>" + fmt(sO[n]) + "</td>"; });
       h += "</tr></tbody>";
       t.className = "";
       t.innerHTML = h;
-      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / " + STORES.length + " 間，金額為各廠商月底盤點的庫存。期初庫存預設帶入上月月底庫存。";
+      $("sumNote").textContent = monthLabel(st.month) + "「月底庫存」已填報 " + filledN + " / " + st.sel.size + " 間（已選門市），金額為各廠商月底盤點的庫存。期初庫存預設帶入上月月底庫存。";
       return;
     }
     t.className = "";
@@ -594,6 +661,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     VENDORS.forEach(function (v) { sumV[v[0]] = 0; });
     onames.forEach(function (n) { sumO[n] = 0; });
     STORES.forEach(function (name, i) {
+      if (!selOn(i + 1)) return;
       var e = entryOf(st.period, i + 1), rev = e ? num(e.revenue) : 0, tot = totalOf(e), filled = !!e;
       if (filled) filledN++;
       sumRev += rev; sumTot += tot;
@@ -609,13 +677,13 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       });
       h += "</tr>";
     });
-    h += "<tr class='total'><td></td><td>全店合計</td><td class='n'>" + fmt(sumRev) + "</td><td class='n'>" + fmt(sumTot) + "</td>";
+    h += "<tr class='total'><td></td><td>" + selLabel() + "</td><td class='n'>" + fmt(sumRev) + "</td><td class='n'>" + fmt(sumTot) + "</td>";
     h += cell(amt ? sumTot : (sumRev > 0 ? sumTot / sumRev : null), amt, true);
     VENDORS.forEach(function (v) { h += cell(amt ? sumV[v[0]] : (sumTot > 0 ? sumV[v[0]] / sumTot : null), amt, true); });
     onames.forEach(function (n) { h += cell(amt ? sumO[n] : (sumTot > 0 ? sumO[n] / sumTot : null), amt, true); });
     h += "</tr></tbody>";
     t.innerHTML = h;
-    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / " + STORES.length + " 間。各期金額都是當月累計。廠商欄位的比例 ＝ 廠商進貨金額 ÷ 該店該期原料總進貨，各廠商加起來為 100%。「總進貨佔業績」＝ 原料總進貨 ÷ 實際業績。尚未填報、進貨為 0 或業績為 0 的欄位顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
+    $("sumNote").textContent = monthLabel(st.month) + "「" + PERIODS[st.period] + "」已填報 " + filledN + " / " + st.sel.size + " 間（已選門市）。各期金額都是當月累計。廠商欄位的比例 ＝ 廠商進貨金額 ÷ 該店該期原料總進貨，各廠商加起來為 100%。「總進貨佔業績」＝ 原料總進貨 ÷ 實際業績。尚未填報、進貨為 0 或業績為 0 的欄位顯示「—」。橘色欄位是各門市自行填寫的其他廠商，相同名稱會合併計算。";
   }
 
   /* ---------- actual cost rate (whole month) ---------- */
@@ -623,6 +691,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
     var h = "<thead><tr><th>項次</th><th>店別</th><th class='n'>當月實際業績</th><th class='n'>期初庫存</th><th class='n'>當月進貨</th><th class='n'>月底庫存</th><th class='n'>實際用料</th><th class='n'>實際成本率</th><th class='n'>進貨佔比</th><th style='text-align:left'>資料狀態</th></tr></thead><tbody>";
     var t = { rev: 0, op: 0, buy: 0, cl: 0, used: 0, n: 0 };
     STORES.forEach(function (name, i) {
+      if (!selOn(i + 1)) return;
       var s = monthStats(i + 1), none = !s.any;
       h += "<tr" + (none ? " class='empty'" : "") + "><td>" + (i + 1) + "</td><td>" + name + "</td>";
       h += amtCell(s.rev, !none) + amtCell(s.opening, s.hasInv) + amtCell(s.buy, !none) + amtCell(s.closing, s.hasInv);
@@ -633,7 +702,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       h += "</tr>";
       if (s.complete) { t.n++; t.rev += s.rev; t.op += s.opening; t.buy += s.buy; t.cl += s.closing; t.used += s.used; }
     });
-    h += "<tr class='total'><td></td><td>合計（資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td><td class='n'>" + fmt(t.op) + "</td><td class='n'>" + fmt(t.buy) + "</td><td class='n'>" + fmt(t.cl) + "</td><td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td class='n'>" + (t.rev > 0 ? pct(t.buy / t.rev) : "—") + "</td><td></td></tr></tbody>";
+    h += "<tr class='total'><td></td><td>合計（已選門市中資料完整 " + t.n + " 間）</td><td class='n'>" + fmt(t.rev) + "</td><td class='n'>" + fmt(t.op) + "</td><td class='n'>" + fmt(t.buy) + "</td><td class='n'>" + fmt(t.cl) + "</td><td class='n'>" + fmt(t.used) + "</td><td class='n'>" + (t.rev > 0 ? pct(t.used / t.rev) : "—") + "</td><td class='n'>" + (t.rev > 0 ? pct(t.buy / t.rev) : "—") + "</td><td></td></tr></tbody>";
     $("costTable").innerHTML = h;
     $("costTitle").textContent = monthLabel(st.month) + "　實際成本率";
     $("costNote").textContent = "10號、20號、月底填的是當月累計金額，所以當月進貨與當月實際業績取「月底」那一筆，不用三期加總。實際用料 ＝ 期初庫存 ＋ 當月進貨（月底）－ 月底庫存。實際成本率 ＝ 實際用料 ÷ 當月實際業績（月底）。月底與月底庫存兩筆都填報的門市才會計算成本率，合計也只包含這些門市。進貨佔比是進貨金額 ÷ 業績，沒有扣庫存，僅供對照。";
@@ -732,6 +801,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
       var onI = otherNames();
       rows = [["項次", "店別", "期初庫存", "月底庫存"].concat(VENDORS.map(function (v) { return v[1]; }), onI)];
       STORES.forEach(function (name, i) {
+        if (!selOn(i + 1)) return;
         var e = entryOf("inv", i + 1); if (!e) { rows.push([i + 1, name]); return; }
         var r = [i + 1, name, openingOf(i + 1), invTotal(e)];
         VENDORS.forEach(function (v) { r.push(num(e.purchases && e.purchases[v[0]])); });
@@ -744,6 +814,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
         .concat(VENDORS.map(function (v) { return v[1] + "金額"; }), onames.map(function (n) { return n + "金額"; }),
                 VENDORS.map(function (v) { return v[1] + "配比"; }), onames.map(function (n) { return n + "配比"; }))];
       STORES.forEach(function (name, i) {
+        if (!selOn(i + 1)) return;
         var e = entryOf(st.period, i + 1); if (!e) { rows.push([i + 1, name]); return; }
         var rev = num(e.revenue), tot = totalOf(e), r = [i + 1, name, rev, tot, rev > 0 ? (tot / rev).toFixed(4) : ""];
         var va = VENDORS.map(function (v) { return num(e.purchases && e.purchases[v[0]]); });
@@ -759,6 +830,7 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   $("csvCostBtn").addEventListener("click", function () {
     var rows = [["項次", "店別", "當月實際業績", "期初庫存", "當月進貨", "月底庫存", "實際用料", "實際成本率", "進貨佔比", "資料狀態"]];
     STORES.forEach(function (name, i) {
+      if (!selOn(i + 1)) return;
       var s = monthStats(i + 1);
       if (!s.any) { rows.push([i + 1, name, "", "", "", "", "", "", "", "未填報"]); return; }
       rows.push([i + 1, name, s.rev, s.opening, s.buy, s.closing, s.complete ? s.used : "", s.complete ? s.rate.toFixed(4) : "", s.buyRate === null ? "" : s.buyRate.toFixed(4), s.complete ? "完整" : "尚缺：" + s.miss.join("、")]);
@@ -801,13 +873,13 @@ td.okc { color: var(--ok); text-align: left; font-family: var(--f-body); }
   $("sync").addEventListener("click", function () { if (API_URL) askPin(""); });
 
   function applyEntries(list) {
-    var mp = new Map(), pv = new Map(), pm = prevMonth(st.month);
+    var mp = new Map(), pv = new Map(), pe = new Map(), pm = prevMonth(st.month);
     list.forEach(function (x) {
       if (!x || !x.storeNo || !PERIODS[x.period]) return;
       if (x.month === st.month) mp.set(key(x.period, x.storeNo), x);
-      else if (x.month === pm && x.period === "inv") pv.set(x.storeNo, invTotal(x));
+      else if (x.month === pm && x.period === "inv") { pv.set(x.storeNo, invTotal(x)); pe.set(x.storeNo, x); }
     });
-    st.all = mp; st.prev = pv; renderAll();
+    st.all = mp; st.prev = pv; st.prevE = pe; renderAll();
     if (!st.dirty) loadForm();
   }
 
